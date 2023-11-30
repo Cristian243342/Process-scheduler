@@ -248,7 +248,7 @@ impl Display for ProcessState {
 ///
 /// The PCB can be implemented with any data structure as long as
 /// it implements this trait.
-pub trait Process {
+pub trait Process: Send {
     /// Return the PID of the process.
     fn pid(&self) -> Pid;
 
