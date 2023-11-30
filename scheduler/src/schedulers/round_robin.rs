@@ -54,46 +54,57 @@ impl RoundRobinScheduler {
         }
     }
 
-    fn syscall_handler(&mut self, mut running_process: Box<PCB>, syscall: Syscall, remaining_time: usize) -> SyscallResult {
-        let mut result = SyscallResult::Success;
-        match syscall {
-            Syscall::Exit => (),
-            Syscall::Fork(priority) => {
-                self.highest_pid += 1;
-                self.ready_processes.push(Box::new(PCB::new(Pid::new(self.highest_pid), priority,
+    fn syscall_handler(&mut self, syscall: Syscall, remaining_time: usize) -> SyscallResult {
+        if let Syscall::Fork(priority) = syscall {
+            self.highest_pid += 1;
+            match self.running_process.take() {
+                Some(mut running_process) => {
+                    self.ready_processes.push(Box::new(PCB::new(Pid::new(self.highest_pid), priority,
                     String::from("Forked from PPID ") + running_process.pid().to_string().as_str())));
 
-                if remaining_time >= self.minimum_remaining_timeslice {
-                    self.running_process = Some(running_process);
-                    self.remaining_time = remaining_time;
-                } else {
-                    running_process.set_state(ProcessState::Ready);
-                    self.ready_processes.push(running_process);
-                }
-
-                result = SyscallResult::Pid(Pid::new(self.highest_pid));
-            },
-            Syscall::Signal(event) => {
-                for process in self.waiting_processes.iter_mut()
-                    .filter(|element| matches!(element.wakeup(), WakeupCondition::Signal(x) if x == event)) {
-                    process.set_state(ProcessState::Ready);
-                    process.set_wakeup(WakeupCondition::None);
-                }
-                self.wakeup_processes();
-            },
-            Syscall::Sleep(sleep_time) => {
-                running_process.set_state(ProcessState::Waiting { event: Some(sleep_time) });
-                running_process.set_wakeup(WakeupCondition::Sleep(sleep_time));
-                self.waiting_processes.push(running_process);
-            },
-            Syscall::Wait(event) => {
-                running_process.set_state(ProcessState::Waiting { event: Some(event) });
-                running_process.set_wakeup(WakeupCondition::Signal(event));
-                self.waiting_processes.push(running_process);
+                    if remaining_time >= self.minimum_remaining_timeslice {
+                        self.running_process = Some(running_process);
+                        self.remaining_time = remaining_time;
+                    } else {
+                        running_process.set_state(ProcessState::Ready);
+                        self.ready_processes.push(running_process);
+                    }
+                },
+                None => self.running_process = Some(Box::new(PCB::new(Pid::new(self.highest_pid), priority,
+                String::from("Init"))))
             }
+
+            return SyscallResult::Pid(Pid::new(self.highest_pid));
         }
 
-        result
+        match self.running_process.take() {
+            None => SyscallResult::NoRunningProcess,
+            Some(mut running_process) => {
+                match syscall {
+                    Syscall::Signal(event) => {
+                        for process in self.waiting_processes.iter_mut()
+                            .filter(|element| matches!(element.wakeup(), WakeupCondition::Signal(x) if x == event)) {
+                            process.set_state(ProcessState::Ready);
+                            process.set_wakeup(WakeupCondition::None);
+                        }
+                        self.wakeup_processes();
+                    },
+                    Syscall::Sleep(sleep_time) => {
+                        running_process.set_state(ProcessState::Waiting { event: Some(sleep_time) });
+                        running_process.set_wakeup(WakeupCondition::Sleep(sleep_time));
+                        self.waiting_processes.push(running_process);
+                    },
+                    Syscall::Wait(event) => {
+                        running_process.set_state(ProcessState::Waiting { event: Some(event) });
+                        running_process.set_wakeup(WakeupCondition::Signal(event));
+                        self.waiting_processes.push(running_process);
+                    },
+                    _ => (),
+                    }
+
+                SyscallResult::Success
+            }
+        }
     }
 
 }
@@ -156,21 +167,21 @@ impl Scheduler for RoundRobinScheduler {
             StopReason::Syscall { syscall: _, remaining } => self.increment_timings(self.timeslice.get() - remaining)
         }
 
-        match self.running_process.take() {
-            None => SyscallResult::NoRunningProcess,
-            Some(running_process) => {
-                match _reason {
-                    StopReason::Expired => {
+        match _reason {
+            StopReason::Expired =>
+                match self.running_process.take() {
+                    Some(running_process) => {
                         self.ready_processes.push(running_process);
                         SyscallResult::Success
                     },
-                    StopReason::Syscall{ syscall, remaining } => {
-                        self.syscall_handler(running_process, syscall, remaining)
-                    }
-                }
+                    None => SyscallResult::NoRunningProcess
+                },
+            StopReason::Syscall{ syscall, remaining } => {
+                self.syscall_handler(syscall, remaining)
             }
         }
     }
+
 
     fn list(&mut self) -> Vec<&dyn Process> {
         let mut processes = Vec::<&Box<PCB>>::new();
