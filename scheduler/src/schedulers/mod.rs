@@ -10,8 +10,12 @@
 //! ```
 //!
 
-// TODO delete this example
+mod pcb;
+
 mod empty;
 pub use empty::Empty;
+
+mod round_robin;
+pub use round_robin::RoundRobinScheduler;
 
 // TODO import your schedulers here
