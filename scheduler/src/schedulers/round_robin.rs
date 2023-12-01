@@ -70,10 +70,13 @@ impl RoundRobinScheduler {
                         self.ready_processes.push(running_process);
                     }
                 },
-                None => self.running_process = Some(Box::new(PCB::new(Pid::new(self.highest_pid), priority,
-                String::from("Init"))))
+                None => {
+                    let mut init_process = Box::new(PCB::new(Pid::new(self.highest_pid), priority,String::from("Init")));
+                    init_process.set_state(ProcessState::Running);
+                    self.running_process = Some(init_process);
+                }
             }
-            self.increment_timings(1);
+            
             return SyscallResult::Pid(Pid::new(self.highest_pid));
         }
 
@@ -102,7 +105,7 @@ impl RoundRobinScheduler {
                     _ => (),
                     }
                 
-                self.increment_timings(1);
+                
                 SyscallResult::Success
             }
         }
@@ -112,7 +115,7 @@ impl RoundRobinScheduler {
 
 impl Scheduler for RoundRobinScheduler {
     fn next(&mut self) -> SchedulingDecision {
-        //self.increment_timings(1);
+        self.increment_timings(1);
 
         if self.running_process.is_none() && self.ready_processes.is_empty() && self.waiting_processes.is_empty() {
             return SchedulingDecision::Done;
@@ -141,7 +144,8 @@ impl Scheduler for RoundRobinScheduler {
                 match NonZeroUsize::new(self.remaining_time) {Some(time) => time, None => exit(-1)}};
         }
 
-        if !self.ready_processes.is_empty() {
+        if let Some(next_process) = self.ready_processes.get_mut(0) {
+            next_process.set_state(ProcessState::Running);
             self.running_process = Some(self.ready_processes.remove(0));
             self.remaining_time = self.timeslice.get();
             return SchedulingDecision::Run { pid: match &self.running_process {Some(process) => process.pid(), None => exit(-1)},
@@ -165,6 +169,8 @@ impl Scheduler for RoundRobinScheduler {
     }
 
     fn stop(&mut self, _reason: StopReason) -> SyscallResult {
+        self.increment_timings(1);
+
         match _reason {
             StopReason::Expired => self.increment_timings(self.timeslice.get()),
             StopReason::Syscall { syscall: _, remaining } => self.increment_timings(self.timeslice.get() - remaining)
@@ -175,11 +181,11 @@ impl Scheduler for RoundRobinScheduler {
                 match self.running_process.take() {
                     Some(running_process) => {
                         self.ready_processes.push(running_process);
-                        self.increment_timings(1);
+                        
                         SyscallResult::Success
                     },
                     None => {
-                        self.increment_timings(1);
+                        
                         SyscallResult::NoRunningProcess
                     }
                 },
@@ -192,6 +198,7 @@ impl Scheduler for RoundRobinScheduler {
 
     fn list(&mut self) -> Vec<&dyn Process> {
         self.increment_timings(1);
+
         let mut processes = Vec::<&Box<PCB>>::new();
         processes.extend(self.ready_processes.iter());
         processes.extend(self.waiting_processes.iter());
