@@ -37,7 +37,7 @@ impl RoundRobinScheduler {
     fn increment_timings(&mut self, _reason: &StopReason) {
         let time = match _reason {
             StopReason::Expired => self.remaining_time,
-            StopReason::Syscall { syscall: _, remaining } => *remaining
+            StopReason::Syscall { syscall: _, remaining } => self.remaining_time - *remaining
         };
 
         if let Some(stopped_process) = &mut self.stopped_process {
@@ -167,7 +167,10 @@ impl Scheduler for RoundRobinScheduler {
         for sleep_time in self.waiting_processes.iter().filter_map(|element|
             match element.wakeup() {WakeupCondition::Sleep(sleep_time) => Some(sleep_time), _ => None}) {
             match minimum_sleep_time {
-                Some(minimum_sleep_time_value) => if sleep_time < minimum_sleep_time_value { minimum_sleep_time = Some(sleep_time) },
+                Some(minimum_sleep_time_value) =>
+                    if sleep_time < minimum_sleep_time_value {
+                        minimum_sleep_time = Some(sleep_time)
+                    },
                 None => minimum_sleep_time = Some(sleep_time)
             }
         }
@@ -206,10 +209,7 @@ impl Scheduler for RoundRobinScheduler {
         }
     }
 
-
     fn list(&mut self) -> Vec<&dyn Process> {
-        //self.increment_timings(1);
-
         let mut processes = Vec::<&Box<PCB>>::new();
         processes.extend(self.ready_processes.iter());
         processes.extend(self.waiting_processes.iter());
