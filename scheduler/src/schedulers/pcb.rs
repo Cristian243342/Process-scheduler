@@ -31,9 +31,9 @@ impl PCB {
         self.wakeup.clone()
     }
 
-    pub fn set_pid(&mut self, pid: usize) {
-        self.pid = Pid::new(pid);
-    }
+    // pub fn set_pid(&mut self, pid: usize) {
+    //     self.pid = Pid::new(pid);
+    // }
 
     pub fn set_state(&mut self, state: ProcessState) {
         self.process_state = state;
@@ -43,13 +43,13 @@ impl PCB {
         self.wakeup = wakeup;
     }
 
-    pub fn set_priority(&mut self, priority: i8) {
-        self.priority = priority;
-    }
+    // pub fn set_priority(&mut self, priority: i8) {
+    //     self.priority = priority;
+    // }
 
-    pub fn set_extra(&mut self, extra: String) {
-        self.extra = extra;
-    }
+    // pub fn set_extra(&mut self, extra: String) {
+    //     self.extra = extra;
+    // }
 
     pub fn increment_timings(&mut self, total_time: usize, syscall_time: usize, execution_time: usize) {
         self.timings.0 += total_time;

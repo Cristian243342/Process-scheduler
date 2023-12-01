@@ -73,7 +73,7 @@ impl RoundRobinScheduler {
                 None => self.running_process = Some(Box::new(PCB::new(Pid::new(self.highest_pid), priority,
                 String::from("Init"))))
             }
-
+            self.increment_timings(1);
             return SyscallResult::Pid(Pid::new(self.highest_pid));
         }
 
@@ -101,7 +101,8 @@ impl RoundRobinScheduler {
                     },
                     _ => (),
                     }
-
+                
+                self.increment_timings(1);
                 SyscallResult::Success
             }
         }
@@ -111,7 +112,12 @@ impl RoundRobinScheduler {
 
 impl Scheduler for RoundRobinScheduler {
     fn next(&mut self) -> SchedulingDecision {
-        self.increment_timings(1);
+        //self.increment_timings(1);
+
+        if self.running_process.is_none() && self.ready_processes.is_empty() && self.waiting_processes.is_empty() {
+            return SchedulingDecision::Done;
+        }
+
         let mut pid_1_is_running = false;
 
         if let Some(running_process) = &mut self.running_process {
@@ -142,10 +148,6 @@ impl Scheduler for RoundRobinScheduler {
             timeslice: match NonZeroUsize::new(self.remaining_time) {Some(time) => time, None => exit(-1)}};
         }
 
-        if self.waiting_processes.is_empty() {
-            return SchedulingDecision::Done;
-        }
-
         let mut minimum_sleep_time: Option<usize> = None;
         for sleep_time in self.waiting_processes.iter().filter_map(|element|
             match element.wakeup() {WakeupCondition::Sleep(sleep_time) => Some(sleep_time), _ => None}) {
@@ -163,7 +165,6 @@ impl Scheduler for RoundRobinScheduler {
     }
 
     fn stop(&mut self, _reason: StopReason) -> SyscallResult {
-        self.increment_timings(1);
         match _reason {
             StopReason::Expired => self.increment_timings(self.timeslice.get()),
             StopReason::Syscall { syscall: _, remaining } => self.increment_timings(self.timeslice.get() - remaining)
@@ -174,9 +175,13 @@ impl Scheduler for RoundRobinScheduler {
                 match self.running_process.take() {
                     Some(running_process) => {
                         self.ready_processes.push(running_process);
+                        self.increment_timings(1);
                         SyscallResult::Success
                     },
-                    None => SyscallResult::NoRunningProcess
+                    None => {
+                        self.increment_timings(1);
+                        SyscallResult::NoRunningProcess
+                    }
                 },
             StopReason::Syscall{ syscall, remaining } => {
                 self.syscall_handler(syscall, remaining)
