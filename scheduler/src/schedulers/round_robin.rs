@@ -115,7 +115,7 @@ impl RoundRobinScheduler {
 
 impl Scheduler for RoundRobinScheduler {
     fn next(&mut self) -> SchedulingDecision {
-        self.increment_timings(1);
+        //self.increment_timings(1);
 
         if self.running_process.is_none() && self.ready_processes.is_empty() && self.waiting_processes.is_empty() {
             return SchedulingDecision::Done;
@@ -169,7 +169,7 @@ impl Scheduler for RoundRobinScheduler {
     }
 
     fn stop(&mut self, _reason: StopReason) -> SyscallResult {
-        self.increment_timings(1);
+        //self.increment_timings(1);
 
         match _reason {
             StopReason::Expired => self.increment_timings(self.timeslice.get()),
