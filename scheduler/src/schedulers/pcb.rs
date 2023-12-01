@@ -17,13 +17,13 @@ pub struct PCB {
 }
 
 impl PCB {
-    pub fn new(pid: Pid, priority: i8, extra: String) -> Self {
+    pub fn new(pid: Pid, priority: i8) -> Self {
         Self { pid,
                process_state: ProcessState::Ready,
                timings: (0,0,0),
                wakeup: WakeupCondition::None,
                priority,
-               extra
+               extra: String::from("")
         }
     }
 

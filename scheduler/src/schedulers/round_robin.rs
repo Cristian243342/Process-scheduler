@@ -59,8 +59,7 @@ impl RoundRobinScheduler {
             self.highest_pid += 1;
             match self.running_process.take() {
                 Some(mut running_process) => {
-                    self.ready_processes.push(Box::new(PCB::new(Pid::new(self.highest_pid), priority,
-                    String::from("Forked from PPID ") + running_process.pid().to_string().as_str())));
+                    self.ready_processes.push(Box::new(PCB::new(Pid::new(self.highest_pid), priority)));
 
                     if remaining_time >= self.minimum_remaining_timeslice {
                         self.running_process = Some(running_process);
@@ -71,7 +70,7 @@ impl RoundRobinScheduler {
                     }
                 },
                 None => {
-                    let mut init_process = Box::new(PCB::new(Pid::new(self.highest_pid), priority,String::from("Init")));
+                    let mut init_process = Box::new(PCB::new(Pid::new(self.highest_pid), priority));
                     init_process.set_state(ProcessState::Running);
                     self.running_process = Some(init_process);
                 }
