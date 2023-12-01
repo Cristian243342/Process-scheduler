@@ -197,7 +197,7 @@ impl Scheduler for RoundRobinScheduler {
 
 
     fn list(&mut self) -> Vec<&dyn Process> {
-        self.increment_timings(1);
+        //self.increment_timings(1);
 
         let mut processes = Vec::<&Box<PCB>>::new();
         processes.extend(self.ready_processes.iter());
