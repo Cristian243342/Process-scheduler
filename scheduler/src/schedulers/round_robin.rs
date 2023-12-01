@@ -111,6 +111,7 @@ impl RoundRobinScheduler {
 
 impl Scheduler for RoundRobinScheduler {
     fn next(&mut self) -> SchedulingDecision {
+        self.increment_timings(1);
         let mut pid_1_is_running = false;
 
         if let Some(running_process) = &mut self.running_process {
@@ -162,6 +163,7 @@ impl Scheduler for RoundRobinScheduler {
     }
 
     fn stop(&mut self, _reason: StopReason) -> SyscallResult {
+        self.increment_timings(1);
         match _reason {
             StopReason::Expired => self.increment_timings(self.timeslice.get()),
             StopReason::Syscall { syscall: _, remaining } => self.increment_timings(self.timeslice.get() - remaining)
@@ -184,6 +186,7 @@ impl Scheduler for RoundRobinScheduler {
 
 
     fn list(&mut self) -> Vec<&dyn Process> {
+        self.increment_timings(1);
         let mut processes = Vec::<&Box<PCB>>::new();
         processes.extend(self.ready_processes.iter());
         processes.extend(self.waiting_processes.iter());
