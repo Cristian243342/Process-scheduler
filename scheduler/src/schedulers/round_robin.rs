@@ -99,7 +99,7 @@ impl RoundRobinScheduler {
             Syscall::Sleep(sleep_time) => {
                 match self.stopped_process.take() {
                     Some(mut stopped_process) => {
-                        stopped_process.set_state(ProcessState::Waiting { event: Some(sleep_time) });
+                        stopped_process.set_state(ProcessState::Waiting { event: None });
                         stopped_process.set_wakeup(WakeupCondition::Sleep(sleep_time));
                         self.waiting_processes.push(stopped_process);
                     },
