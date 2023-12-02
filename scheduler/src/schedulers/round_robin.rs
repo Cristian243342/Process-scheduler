@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, process::exit};
+use std::{num::NonZeroUsize, process::exit, sync::Arc};
 use crate::{Scheduler, Process, Pid, ProcessState, StopReason, SchedulingDecision, Syscall, SyscallResult};
 use super::pcb::{PCB, WakeupCondition};
 
@@ -10,7 +10,8 @@ pub struct RoundRobinScheduler {
     waiting_processes: Vec<Box<PCB>>,
     timeslice: NonZeroUsize,
     minimum_remaining_timeslice: usize,
-    highest_pid: usize
+    highest_pid: usize,
+    sleep_time: usize
 }
 
 impl RoundRobinScheduler {
@@ -22,7 +23,8 @@ impl RoundRobinScheduler {
             waiting_processes: Vec::<Box<PCB>>::new(),
             timeslice,
             minimum_remaining_timeslice,
-            highest_pid: 0
+            highest_pid: 0,
+            sleep_time: 0
         }
     }
 
@@ -71,11 +73,11 @@ impl RoundRobinScheduler {
         }
     }
 
-    fn sleep(&mut self, sleep_time: NonZeroUsize) {
+    fn sleep(&mut self) {
         for process in self.waiting_processes.iter_mut() {
-            process.increment_timings(sleep_time.get(), sleep_time.get(), 0);
+            process.increment_timings(self.sleep_time, self.sleep_time, 0);
             if let WakeupCondition::Sleep(wakeup_time) = process.wakeup() {
-                match wakeup_time.checked_sub(sleep_time.get()) {
+                match wakeup_time.checked_sub(self.sleep_time) {
                     Some(remaining_time) =>
                         if remaining_time != 0 {
                             process.set_wakeup(WakeupCondition::Sleep(remaining_time));
@@ -153,6 +155,9 @@ impl RoundRobinScheduler {
 
 impl Scheduler for RoundRobinScheduler {
     fn next(&mut self) -> SchedulingDecision {
+        if self.sleep_time != 0 {
+            self.sleep();
+        }
         self.wakeup_processes();
 
         if self.running_process.is_none() && self.ready_processes.is_empty() && self.waiting_processes.is_empty() {
@@ -204,7 +209,7 @@ impl Scheduler for RoundRobinScheduler {
 
         match minimum_sleep_time {
             Some(sleep_time) => {
-                self.sleep(match NonZeroUsize::new(sleep_time) {Some(sleep_time) => sleep_time, None => exit(-1)});
+                self.sleep_time = sleep_time;
                 return SchedulingDecision::Sleep(match NonZeroUsize::new(sleep_time)
                     {Some(sleep_time) => sleep_time, None => exit(-1)})
             },
