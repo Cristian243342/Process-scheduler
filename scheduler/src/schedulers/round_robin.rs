@@ -125,22 +125,6 @@ impl RoundRobinScheduler {
                 return SyscallResult::Pid(Pid::new(self.highest_pid));
             }
             Syscall::Signal(event) => {
-                match self.stopped_process.take() {
-                    Some(mut stopped_process) => {
-                        if remaining_time >= self.minimum_remaining_timeslice {
-                            stopped_process.set_state(ProcessState::Running);
-                            self.running_process = Some(stopped_process);
-                            self.remaining_time = remaining_time;
-                        } else {
-                            stopped_process.set_state(ProcessState::Ready);
-                            self.remaining_time = 0;
-                            self.ready_processes.push(stopped_process);
-                        }
-                    },
-                    None => {
-                        self.remaining_time = 0;
-                    }
-                }
                 for process in self.waiting_processes.iter_mut()
                     .filter(|element| matches!(element.wakeup(), WakeupCondition::Signal(x) if x == event)) {
                     process.set_state(ProcessState::Ready);
@@ -181,6 +165,10 @@ impl Scheduler for RoundRobinScheduler {
             self.sleep();
         }
         self.wakeup_processes();
+        if let Some(mut stopped_process) = self.stopped_process.take() {
+            stopped_process.set_state(ProcessState::Ready);
+            self.ready_processes.push(stopped_process);
+        }
 
         if self.running_process.is_none() && self.ready_processes.is_empty() && self.waiting_processes.is_empty() {
             return SchedulingDecision::Done;
