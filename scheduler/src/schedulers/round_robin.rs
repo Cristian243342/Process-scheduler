@@ -92,6 +92,7 @@ impl RoundRobinScheduler {
                 }
             }
         }
+        self.sleep_time = 0;
     }
 
     fn syscall_handler(&mut self, syscall: Syscall, remaining_time: usize) -> SyscallResult {
