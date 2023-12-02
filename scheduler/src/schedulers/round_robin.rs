@@ -55,7 +55,13 @@ impl RoundRobinScheduler {
             process.increment_timings(time, time, 0);
             if let WakeupCondition::Sleep(sleep_time) = process.wakeup() {
                 match sleep_time.checked_sub(time) {
-                    Some(remaining_time) => process.set_wakeup(WakeupCondition::Sleep(remaining_time)),
+                    Some(remaining_time) => 
+                        if remaining_time != 0 {
+                            process.set_wakeup(WakeupCondition::Sleep(remaining_time))
+                        } else {
+                            process.set_wakeup(WakeupCondition::None);
+                            process.set_state(ProcessState::Ready);
+                        },
                     None => { 
                         process.set_wakeup(WakeupCondition::None);
                         process.set_state(ProcessState::Ready);
@@ -65,18 +71,18 @@ impl RoundRobinScheduler {
         }
     }
 
-    fn decrement_sleep(&mut self) {
+    fn sleep(&mut self, sleep_time: NonZeroUsize) {
         for process in self.waiting_processes.iter_mut() {
-            if let WakeupCondition::Sleep(sleep_time) = process.wakeup() {
-                match sleep_time.checked_sub(1) {
-                    Some(remaining_time) => {
-                        if remaining_time !=0 {
-                            process.set_wakeup(WakeupCondition::Sleep(remaining_time))
+            process.increment_timings(sleep_time.get(), sleep_time.get(), 0);
+            if let WakeupCondition::Sleep(wakeup_time) = process.wakeup() {
+                match wakeup_time.checked_sub(sleep_time.get()) {
+                    Some(remaining_time) =>
+                        if remaining_time != 0 {
+                            process.set_wakeup(WakeupCondition::Sleep(remaining_time));
                         } else {
                             process.set_wakeup(WakeupCondition::None);
                             process.set_state(ProcessState::Ready);
-                        }
-                    },
+                        },
                     None => { 
                         process.set_wakeup(WakeupCondition::None);
                         process.set_state(ProcessState::Ready);
@@ -147,7 +153,6 @@ impl RoundRobinScheduler {
 
 impl Scheduler for RoundRobinScheduler {
     fn next(&mut self) -> SchedulingDecision {
-        self.decrement_sleep();
         self.wakeup_processes();
 
         if self.running_process.is_none() && self.ready_processes.is_empty() && self.waiting_processes.is_empty() {
@@ -198,8 +203,11 @@ impl Scheduler for RoundRobinScheduler {
         }
 
         match minimum_sleep_time {
-            Some(sleep_time) => return SchedulingDecision::Sleep(match NonZeroUsize::new(sleep_time)
-                {Some(sleep_time) => sleep_time, None => exit(-1)}),
+            Some(sleep_time) => {
+                self.sleep(match NonZeroUsize::new(sleep_time) {Some(sleep_time) => sleep_time, None => exit(-1)});
+                return SchedulingDecision::Sleep(match NonZeroUsize::new(sleep_time)
+                    {Some(sleep_time) => sleep_time, None => exit(-1)})
+            },
             None => return SchedulingDecision::Deadlock
         }
     }
