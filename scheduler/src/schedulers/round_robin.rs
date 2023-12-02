@@ -65,6 +65,20 @@ impl RoundRobinScheduler {
         }
     }
 
+    fn decrement_sleep(&mut self) {
+        for process in self.waiting_processes.iter_mut() {
+            if let WakeupCondition::Sleep(sleep_time) = process.wakeup() {
+                match sleep_time.checked_sub(1) {
+                    Some(remaining_time) => process.set_wakeup(WakeupCondition::Sleep(remaining_time)),
+                    None => { 
+                        process.set_wakeup(WakeupCondition::None);
+                        process.set_state(ProcessState::Ready);
+                    }
+                }
+            }
+        }
+    }
+
     fn syscall_handler(&mut self, syscall: Syscall, remaining_time: usize) -> SyscallResult {
         match syscall {
             Syscall::Fork(priority) => {
@@ -126,27 +140,28 @@ impl RoundRobinScheduler {
 
 impl Scheduler for RoundRobinScheduler {
     fn next(&mut self) -> SchedulingDecision {
+        self.decrement_sleep();
         self.wakeup_processes();
 
         if self.running_process.is_none() && self.ready_processes.is_empty() && self.waiting_processes.is_empty() {
             return SchedulingDecision::Done;
         }
 
-        let mut pid_1_is_running = false;
+        let mut pid_1_exists = false;
 
         if let Some(running_process) = &mut self.running_process {
             if running_process.pid().cmp(&Pid::new(1)).is_eq() {
-                pid_1_is_running = true;
+                pid_1_exists = true;
             }
         }
         if self.ready_processes.iter().find(|element| element.pid().cmp(&Pid::new(1)).is_eq()).is_some() {
-            pid_1_is_running = true;
+            pid_1_exists = true;
         }
         if self.waiting_processes.iter().find(|element| element.pid().cmp(&Pid::new(1)).is_eq()).is_some() {
-            pid_1_is_running = true;
+            pid_1_exists = true;
         }
 
-        if !pid_1_is_running {
+        if !pid_1_exists {
             return SchedulingDecision::Panic;
         }
 
