@@ -130,22 +130,27 @@ impl RoundRobinScheduler {
                     process.set_state(ProcessState::Ready);
                     process.set_wakeup(WakeupCondition::None);
                 }
-                match self.stopped_process.take() {
-                    Some(mut stopped_process) => {
-                        if remaining_time >= self.minimum_remaining_timeslice {
-                            stopped_process.set_state(ProcessState::Running);
-                            self.running_process = Some(stopped_process);
-                            self.remaining_time = remaining_time;
-                        } else {
-                            stopped_process.set_state(ProcessState::Ready);
-                            self.remaining_time = 0;
-                            self.ready_processes.push(stopped_process);
-                        }
-                    },
-                    None => {
-                        self.remaining_time = 0;
-                    }
+                self.wakeup_processes();
+                if let Some(mut stopped_process) = self.stopped_process.take() {
+                    stopped_process.set_state(ProcessState::Ready);
+                    self.ready_processes.push(stopped_process);
                 }
+                // match self.stopped_process.take() {
+                //     Some(mut stopped_process) => {
+                //         if remaining_time >= self.minimum_remaining_timeslice {
+                //             stopped_process.set_state(ProcessState::Running);
+                //             self.running_process = Some(stopped_process);
+                //             self.remaining_time = remaining_time;
+                //         } else {
+                //             stopped_process.set_state(ProcessState::Ready);
+                //             self.remaining_time = 0;
+                //             self.ready_processes.push(stopped_process);
+                //         }
+                //     },
+                //     None => {
+                //         self.remaining_time = 0;
+                //     }
+                // }
             },
             Syscall::Sleep(sleep_time) => {
                 match self.stopped_process.take() {
