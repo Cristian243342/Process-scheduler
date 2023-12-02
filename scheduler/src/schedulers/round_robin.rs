@@ -107,7 +107,7 @@ impl RoundRobinScheduler {
                 self.ready_processes.push(Box::new(PCB::new(Pid::new(self.highest_pid), priority)));
                 match self.stopped_process.take() {
                     Some(mut stopped_process) => {
-                        if remaining_time > self.minimum_remaining_timeslice {
+                        if remaining_time >= self.minimum_remaining_timeslice {
                             stopped_process.set_state(ProcessState::Running);
                             self.running_process = Some(stopped_process);
                             self.remaining_time = remaining_time;
@@ -127,7 +127,7 @@ impl RoundRobinScheduler {
             Syscall::Signal(event) => {
                 match self.stopped_process.take() {
                     Some(mut stopped_process) => {
-                        if remaining_time > self.minimum_remaining_timeslice {
+                        if remaining_time >= self.minimum_remaining_timeslice {
                             stopped_process.set_state(ProcessState::Running);
                             self.running_process = Some(stopped_process);
                             self.remaining_time = remaining_time;
