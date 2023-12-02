@@ -151,7 +151,7 @@ impl RoundRobinScheduler {
                     None => return SyscallResult::NoRunningProcess
                 }
             },
-            Syscall::Exit => (),
+            Syscall::Exit => self.stopped_process = None,
         };
         
         SyscallResult::Success
