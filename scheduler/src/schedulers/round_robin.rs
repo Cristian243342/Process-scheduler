@@ -69,7 +69,14 @@ impl RoundRobinScheduler {
         for process in self.waiting_processes.iter_mut() {
             if let WakeupCondition::Sleep(sleep_time) = process.wakeup() {
                 match sleep_time.checked_sub(1) {
-                    Some(remaining_time) => process.set_wakeup(WakeupCondition::Sleep(remaining_time)),
+                    Some(remaining_time) => {
+                        if remaining_time !=0 {
+                            process.set_wakeup(WakeupCondition::Sleep(remaining_time))
+                        } else {
+                            process.set_wakeup(WakeupCondition::None);
+                            process.set_state(ProcessState::Ready);
+                        }
+                    },
                     None => { 
                         process.set_wakeup(WakeupCondition::None);
                         process.set_state(ProcessState::Ready);
