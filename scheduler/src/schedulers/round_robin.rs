@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, process::exit, sync::Arc};
+use std::{num::NonZeroUsize, process::exit};
 use crate::{Scheduler, Process, Pid, ProcessState, StopReason, SchedulingDecision, Syscall, SyscallResult};
 use super::pcb::{PCB, WakeupCondition};
 
