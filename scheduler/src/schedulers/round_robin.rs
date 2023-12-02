@@ -112,6 +112,7 @@ impl RoundRobinScheduler {
                             self.running_process = Some(stopped_process);
                             self.remaining_time = remaining_time;
                         } else {
+                            self.wakeup_processes();
                             stopped_process.set_state(ProcessState::Ready);
                             self.remaining_time = 0;
                             self.ready_processes.push(stopped_process);
@@ -252,6 +253,7 @@ impl Scheduler for RoundRobinScheduler {
             StopReason::Expired =>
                 match self.stopped_process.take() {
                     Some(mut stopped_process) => {
+                        self.wakeup_processes();
                         stopped_process.set_state(ProcessState::Ready);
                         self.ready_processes.push(stopped_process);
                         self.remaining_time = 0;
