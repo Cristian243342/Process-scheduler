@@ -54,7 +54,7 @@ impl RoundRobinScheduler {
         }
 
         for process in self.waiting_processes.iter_mut() {
-            process.increment_timings(time, time, 0);
+            process.increment_timings(time, 0, 0);
             if let WakeupCondition::Sleep(sleep_time) = process.wakeup() {
                 match sleep_time.checked_sub(time) {
                     Some(remaining_time) => 
@@ -75,7 +75,7 @@ impl RoundRobinScheduler {
 
     fn sleep(&mut self) {
         for process in self.waiting_processes.iter_mut() {
-            process.increment_timings(self.sleep_time, self.sleep_time, 0);
+            process.increment_timings(self.sleep_time, 0, 0);
             if let WakeupCondition::Sleep(wakeup_time) = process.wakeup() {
                 match wakeup_time.checked_sub(self.sleep_time) {
                     Some(remaining_time) =>
