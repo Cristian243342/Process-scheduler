@@ -7,6 +7,7 @@ pub enum WakeupCondition {
     None
 }
 
+#[derive(Clone)]
 pub struct PCB {
     pid: Pid,
     process_state: ProcessState,

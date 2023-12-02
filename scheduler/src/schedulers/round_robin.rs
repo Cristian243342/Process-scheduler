@@ -29,11 +29,16 @@ impl RoundRobinScheduler {
     }
 
     fn wakeup_processes(&mut self) {
-        for index in 0..self.waiting_processes.len() {
-            if matches!(self.waiting_processes[index].state(), ProcessState::Ready) {
-                self.ready_processes.push(self.waiting_processes.remove(index));
+        let mut still_waiting_processes = Vec::<Box<PCB>>::new();
+        let process_iter = self.waiting_processes.to_vec().into_iter();
+        for process in process_iter {
+            if matches!(process.state(), ProcessState::Ready) {
+                self.ready_processes.push(process);
+            } else {
+                still_waiting_processes.push(process);
             }
         }
+        self.waiting_processes.clone_from(&still_waiting_processes);
     }
 
     fn increment_timings(&mut self, _reason: &StopReason) {
