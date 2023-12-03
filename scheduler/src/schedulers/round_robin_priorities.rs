@@ -191,7 +191,7 @@ impl RoundRobinPrioritiesScheduler {
     fn is_done(&self) -> bool {
         self.running_process.is_none()
         && self.ready_processes.iter()
-            .fold(true, |_, process_queue| process_queue.is_empty())
+            .fold(true, |is_empty, process_queue| is_empty && process_queue.is_empty())
         && self.waiting_processes.is_empty()
     }
 
