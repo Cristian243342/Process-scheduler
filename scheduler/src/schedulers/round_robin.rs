@@ -91,11 +91,15 @@ impl RoundRobinScheduler {
         self.wakeup_processes();
     }
 
+    fn new_process(&mut self, priority: i8) {
+        self.highest_pid += 1;
+        self.ready_processes.push(Box::new(PCB::new(Pid::new(self.highest_pid), priority)));
+    }
+
     fn syscall_handler(&mut self, syscall: Syscall, remaining_time: usize) -> SyscallResult {
         match syscall {
             Syscall::Fork(priority) => {
-                self.highest_pid += 1;
-                self.ready_processes.push(Box::new(PCB::new(Pid::new(self.highest_pid), priority)));
+                self.new_process(priority);
 
                 self.wakeup_processes();
                 match self.stopped_process.take() {
@@ -105,9 +109,7 @@ impl RoundRobinScheduler {
                             self.running_process = Some(stopped_process);
                             self.remaining_time = remaining_time;
                         } else {
-                            stopped_process.set_state(ProcessState::Ready);
-                            self.remaining_time = 0;
-                            self.ready_processes.push(stopped_process);
+                            self.set_ready(stopped_process)
                         }
                     },
                     None => {
@@ -132,9 +134,7 @@ impl RoundRobinScheduler {
                             self.running_process = Some(stopped_process);
                             self.remaining_time = remaining_time;
                         } else {
-                            stopped_process.set_state(ProcessState::Ready);
-                            self.remaining_time = 0;
-                            self.ready_processes.push(stopped_process);
+                            self.set_ready(stopped_process)
                         }
                     },
                     None => {
@@ -167,51 +167,35 @@ impl RoundRobinScheduler {
         
         SyscallResult::Success
     }
-}
 
+    fn is_done(&self) -> bool {
+        self.running_process.is_none() && self.ready_processes.is_empty() && self.waiting_processes.is_empty()
+    }
 
-impl Scheduler for RoundRobinScheduler {
-    fn next(&mut self) -> SchedulingDecision {
-        if self.sleep_time != 0 {
-            self.sleep();
-        }
-        //self.wakeup_processes();
-
-        if self.running_process.is_none() && self.ready_processes.is_empty() && self.waiting_processes.is_empty() {
-            return SchedulingDecision::Done;
-        }
-
-        let mut pid_1_exists = false;
-
-        if let Some(running_process) = &mut self.running_process {
+    fn pid_1_exists(&self) -> bool {
+        if let Some(running_process) = &self.running_process {
             if running_process.pid().cmp(&Pid::new(1)).is_eq() {
-                pid_1_exists = true;
+                return true;
             }
         }
         if self.ready_processes.iter().find(|element| element.pid().cmp(&Pid::new(1)).is_eq()).is_some() {
-            pid_1_exists = true;
+            return true;
         }
         if self.waiting_processes.iter().find(|element| element.pid().cmp(&Pid::new(1)).is_eq()).is_some() {
-            pid_1_exists = true;
+            return true;
         }
+        return false;
+    }
 
-        if !pid_1_exists {
-            return SchedulingDecision::Panic;
+    fn scheduled_process(&mut self) -> Option<Box<PCB>> {
+        if !self.ready_processes.is_empty() {
+            Some(self.ready_processes.remove(0))
+        } else {
+            None
         }
+    }
 
-        if let Some(running_process) = &mut self.running_process {
-            return SchedulingDecision::Run { pid: running_process.pid(), timeslice:
-                match NonZeroUsize::new(self.remaining_time) {Some(time) => time, None => exit(-1)}};
-        }
-
-        if let Some(next_process) = self.ready_processes.get_mut(0) {
-            next_process.set_state(ProcessState::Running);
-            self.running_process = Some(self.ready_processes.remove(0));
-            self.remaining_time = self.timeslice.get();
-            return SchedulingDecision::Run { pid: match &self.running_process {Some(process) => process.pid(), None => exit(-1)},
-            timeslice: self.timeslice };
-        }
-
+    fn find_sleep_time(&self) -> Option<usize> {
         let mut minimum_sleep_time: Option<usize> = None;
         for sleep_time in self.waiting_processes.iter().filter_map(|element|
             match element.wakeup() {WakeupCondition::Sleep(sleep_time) => Some(sleep_time), _ => None}) {
@@ -223,8 +207,51 @@ impl Scheduler for RoundRobinScheduler {
                 None => minimum_sleep_time = Some(sleep_time)
             }
         }
+        minimum_sleep_time
+    }
 
-        match minimum_sleep_time {
+    fn set_ready(&mut self, mut process: Box<PCB>) {
+        process.set_state(ProcessState::Ready);
+        process.set_wakeup(WakeupCondition::None);
+        self.ready_processes.push(process);
+        self.remaining_time = 0;
+    }
+
+    fn set_running(&mut self, mut process: Box<PCB>) {
+        process.set_state(ProcessState::Running);
+        self.running_process = Some(process);
+        self.remaining_time = self.timeslice.get();
+    }
+
+}
+
+
+impl Scheduler for RoundRobinScheduler {
+    fn next(&mut self) -> SchedulingDecision {
+        if self.sleep_time != 0 {
+            self.sleep();
+        }
+
+        if self.is_done() {
+            return SchedulingDecision::Done;
+        }
+
+        if !self.pid_1_exists() {
+            return SchedulingDecision::Panic;
+        }
+
+        if let Some(scheduled_process) = &mut self.running_process {
+            return SchedulingDecision::Run { pid: scheduled_process.pid(), timeslice:
+                match NonZeroUsize::new(self.remaining_time) {Some(time) => time, None => exit(-1)}};
+        }
+
+        if let Some(scheduled_process) = self.scheduled_process() {
+            self.set_running(scheduled_process);
+            return SchedulingDecision::Run { pid: match &self.running_process {Some(process) => process.pid(), None => exit(-1)},
+            timeslice: self.timeslice };
+        }
+
+        match self.find_sleep_time() {
             Some(sleep_time) => {
                 self.sleep_time = sleep_time;
                 return SchedulingDecision::Sleep(match NonZeroUsize::new(sleep_time)
@@ -246,10 +273,8 @@ impl Scheduler for RoundRobinScheduler {
             StopReason::Expired => {
                 self.wakeup_processes();
                 match self.stopped_process.take() {
-                    Some(mut stopped_process) => {
-                        stopped_process.set_state(ProcessState::Ready);
-                        self.ready_processes.push(stopped_process);
-                        self.remaining_time = 0;
+                    Some(stopped_process) => {
+                        self.set_ready(stopped_process);
                         SyscallResult::Success
                     },
                     None => {
