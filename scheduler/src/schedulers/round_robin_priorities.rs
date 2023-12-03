@@ -120,7 +120,6 @@ impl RoundRobinPrioritiesScheduler {
                 match self.stopped_process.take() {
                     Some(mut stopped_process) => {
                         if remaining_time >= self.minimum_remaining_timeslice {
-                            // Iffy: does it still increment priority?
                             stopped_process.set_state(ProcessState::Running);
                             self.running_process = Some(stopped_process);
                             self.remaining_time = remaining_time;
@@ -165,7 +164,7 @@ impl RoundRobinPrioritiesScheduler {
                     Some(mut stopped_process) => {
                         stopped_process.set_state(ProcessState::Waiting { event: None });
                         stopped_process.set_wakeup(WakeupCondition::Sleep(sleep_time));
-                        stopped_process.increment_priority();
+                        //stopped_process.increment_priority();
                         self.waiting_processes.push(stopped_process);
                     },
                     None => return SyscallResult::NoRunningProcess
