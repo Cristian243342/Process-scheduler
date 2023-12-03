@@ -244,9 +244,9 @@ impl Display for ProcessState {
     }
 }
 
-/// The trait that the Process Control Block (PCB) has to implement.
+/// The trait that the Process Control Block (Pcb) has to implement.
 ///
-/// The PCB can be implemented with any data structure as long as
+/// The Pcb can be implemented with any data structure as long as
 /// it implements this trait.
 pub trait Process: Send {
     /// Return the PID of the process.

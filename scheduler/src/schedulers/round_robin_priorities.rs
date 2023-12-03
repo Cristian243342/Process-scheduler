@@ -1,6 +1,6 @@
 use std::{num::NonZeroUsize, process::exit};
 use crate::{Scheduler, Process, Pid, ProcessState, StopReason, SchedulingDecision, Syscall, SyscallResult};
-use super::pcb::{PCB, WakeupCondition};
+use super::pcb::{Pcb, WakeupCondition};
 
 macro_rules! usize_from {
     ($integer:expr) => {
@@ -12,11 +12,11 @@ macro_rules! usize_from {
 }
 
 pub struct RoundRobinPrioritiesScheduler {
-    running_process: Option<Box<PCB>>,
-    stopped_process: Option<Box<PCB>>,
+    running_process: Option<Box<Pcb>>,
+    stopped_process: Option<Box<Pcb>>,
     remaining_time: usize,
-    ready_processes: Vec<Vec<Box<PCB>>>,
-    waiting_processes: Vec<Box<PCB>>,
+    ready_processes: Vec<Vec<Box<Pcb>>>,
+    waiting_processes: Vec<Box<Pcb>>,
     timeslice: NonZeroUsize,
     minimum_remaining_timeslice: usize,
     highest_pid: usize,
@@ -28,8 +28,8 @@ impl RoundRobinPrioritiesScheduler {
         Self { running_process: None,
             stopped_process: None,
             remaining_time: 0,
-            ready_processes: vec![Vec::<Box<PCB>>::new(); 6],
-            waiting_processes: Vec::<Box<PCB>>::new(),
+            ready_processes: vec![Vec::<Box<Pcb>>::new(); 6],
+            waiting_processes: Vec::<Box<Pcb>>::new(),
             timeslice,
             minimum_remaining_timeslice,
             highest_pid: 0,
@@ -38,7 +38,7 @@ impl RoundRobinPrioritiesScheduler {
     }
 
     fn wakeup_processes(&mut self) {
-        let mut still_waiting_processes = Vec::<Box<PCB>>::new();
+        let mut still_waiting_processes = Vec::<Box<Pcb>>::new();
         let process_iter = self.waiting_processes.to_vec().into_iter();
         for process in process_iter {
             if matches!(process.state(), ProcessState::Ready) {
@@ -106,7 +106,7 @@ impl RoundRobinPrioritiesScheduler {
     fn new_process(&mut self, priority: i8) {
         self.highest_pid += 1;
         match self.ready_processes.get_mut(usize_from!(priority)) {
-            Some(process_queue) => process_queue.push(Box::new(PCB::new(Pid::new(self.highest_pid), priority))),
+            Some(process_queue) => process_queue.push(Box::new(Pcb::new(Pid::new(self.highest_pid), priority))),
             None => exit(-1)
         }
     }
@@ -209,7 +209,7 @@ impl RoundRobinPrioritiesScheduler {
         return false;
     }
 
-    fn scheduled_process(&mut self) -> Option<Box<PCB>> {
+    fn scheduled_process(&mut self) -> Option<Box<Pcb>> {
         for process_queue in self.ready_processes.iter_mut().filter(|queue| !queue.is_empty()).rev() {
             return Some(process_queue.remove(0));
         }
@@ -231,7 +231,7 @@ impl RoundRobinPrioritiesScheduler {
         minimum_sleep_time
     }
 
-    fn set_ready(&mut self, mut process: Box<PCB>) {
+    fn set_ready(&mut self, mut process: Box<Pcb>) {
         process.set_state(ProcessState::Ready);
         process.set_wakeup(WakeupCondition::None);
         match self.ready_processes.get_mut(usize_from!(process.priority())) {
@@ -241,14 +241,14 @@ impl RoundRobinPrioritiesScheduler {
         self.remaining_time = 0;
     }
 
-    fn set_running(&mut self, mut process: Box<PCB>) {
+    fn set_running(&mut self, mut process: Box<Pcb>) {
         process.set_state(ProcessState::Running);
         self.running_process = Some(process);
         self.remaining_time = self.timeslice.get();
     }
 
-    fn get_all_processes(&self) -> Vec<&Box<PCB>> {
-        let mut processes = Vec::<&Box<PCB>>::new();
+    fn get_all_processes(&self) -> Vec<&Box<Pcb>> {
+        let mut processes = Vec::<&Box<Pcb>>::new();
         processes.extend(self.ready_processes.iter().flatten());
         processes.extend(self.waiting_processes.iter());
         if let Some(running_process) = &self.running_process {
