@@ -124,7 +124,7 @@ impl RoundRobinPrioritiesScheduler {
                             self.running_process = Some(stopped_process);
                             self.remaining_time = remaining_time;
                         } else {
-                            //stopped_process.increment_priority();
+                            stopped_process.increment_priority();
                             self.set_ready(stopped_process)
                         }
                     },
