@@ -223,6 +223,16 @@ impl RoundRobinScheduler {
         self.remaining_time = self.timeslice.get();
     }
 
+    fn get_all_processes(&self) -> Vec<&Box<PCB>> {
+        let mut processes = Vec::<&Box<PCB>>::new();
+        processes.extend(self.ready_processes.iter());
+        processes.extend(self.waiting_processes.iter());
+        if let Some(running_process) = &self.running_process {
+            processes.push(running_process);
+        }
+        processes
+    }
+
 }
 
 
@@ -289,12 +299,7 @@ impl Scheduler for RoundRobinScheduler {
     }
 
     fn list(&mut self) -> Vec<&dyn Process> {
-        let mut processes = Vec::<&Box<PCB>>::new();
-        processes.extend(self.ready_processes.iter());
-        processes.extend(self.waiting_processes.iter());
-        if let Some(running_process) = &self.running_process {
-            processes.push(running_process);
-        }
+        let mut processes = self.get_all_processes();
 
         processes.sort_by(|element1, element2|  element1.pid().cmp(&element2.pid()));
 

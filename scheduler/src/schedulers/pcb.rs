@@ -44,18 +44,22 @@ impl PCB {
         self.wakeup = wakeup;
     }
 
-    // pub fn set_priority(&mut self, priority: i8) {
-    //     self.priority = priority;
-    // }
-
-    // pub fn set_extra(&mut self, extra: String) {
-    //     self.extra = extra;
-    // }
-
     pub fn increment_timings(&mut self, total_time: usize, syscall_time: usize, execution_time: usize) {
         self.timings.0 += total_time;
         self.timings.1 += syscall_time;
         self.timings.2 += execution_time;
+    }
+
+    pub fn increment_priority(&mut self) {
+        if self.priority != 5 {
+            self.priority += 1;
+        }
+    }
+
+    pub fn decrement_priority(&mut self) {
+        if self.priority != 0 {
+            self.priority -= 1;
+        }
     }
 
 }
