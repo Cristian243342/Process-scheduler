@@ -77,14 +77,9 @@ impl RoundRobinScheduler {
         for process in self.waiting_processes.iter_mut() {
             process.increment_timings(self.sleep_time, 0, 0);
             if let WakeupCondition::Sleep(wakeup_time) = process.wakeup() {
-                match wakeup_time.checked_sub(self.sleep_time) {
-                    Some(remaining_time) =>
-                        if remaining_time != 0 {
-                            process.set_wakeup(WakeupCondition::Sleep(remaining_time));
-                        } else {
-                            process.set_wakeup(WakeupCondition::None);
-                            process.set_state(ProcessState::Ready);
-                        },
+                match wakeup_time.checked_sub(self.sleep_time).filter(|remaining_time| *remaining_time != 0) {
+                    Some(remaining_time) => 
+                        process.set_wakeup(WakeupCondition::Sleep(remaining_time)),
                     None => { 
                         process.set_wakeup(WakeupCondition::None);
                         process.set_state(ProcessState::Ready);
@@ -93,6 +88,7 @@ impl RoundRobinScheduler {
             }
         }
         self.sleep_time = 0;
+        self.wakeup_processes();
     }
 
     fn syscall_handler(&mut self, syscall: Syscall, remaining_time: usize) -> SyscallResult {
@@ -100,6 +96,8 @@ impl RoundRobinScheduler {
             Syscall::Fork(priority) => {
                 self.highest_pid += 1;
                 self.ready_processes.push(Box::new(PCB::new(Pid::new(self.highest_pid), priority)));
+
+                self.wakeup_processes();
                 match self.stopped_process.take() {
                     Some(mut stopped_process) => {
                         if remaining_time >= self.minimum_remaining_timeslice {
@@ -107,7 +105,6 @@ impl RoundRobinScheduler {
                             self.running_process = Some(stopped_process);
                             self.remaining_time = remaining_time;
                         } else {
-                            self.wakeup_processes();
                             stopped_process.set_state(ProcessState::Ready);
                             self.remaining_time = 0;
                             self.ready_processes.push(stopped_process);
@@ -126,6 +123,8 @@ impl RoundRobinScheduler {
                     process.set_state(ProcessState::Ready);
                     process.set_wakeup(WakeupCondition::None);
                 }
+
+                self.wakeup_processes();
                 match self.stopped_process.take() {
                     Some(mut stopped_process) => {
                         if remaining_time >= self.minimum_remaining_timeslice {
@@ -133,7 +132,6 @@ impl RoundRobinScheduler {
                             self.running_process = Some(stopped_process);
                             self.remaining_time = remaining_time;
                         } else {
-                            self.wakeup_processes();
                             stopped_process.set_state(ProcessState::Ready);
                             self.remaining_time = 0;
                             self.ready_processes.push(stopped_process);
@@ -177,7 +175,7 @@ impl Scheduler for RoundRobinScheduler {
         if self.sleep_time != 0 {
             self.sleep();
         }
-        self.wakeup_processes();
+        //self.wakeup_processes();
 
         if self.running_process.is_none() && self.ready_processes.is_empty() && self.waiting_processes.is_empty() {
             return SchedulingDecision::Done;
@@ -245,10 +243,10 @@ impl Scheduler for RoundRobinScheduler {
         self.increment_timings(&_reason);
 
         match _reason {
-            StopReason::Expired =>
+            StopReason::Expired => {
+                self.wakeup_processes();
                 match self.stopped_process.take() {
                     Some(mut stopped_process) => {
-                        self.wakeup_processes();
                         stopped_process.set_state(ProcessState::Ready);
                         self.ready_processes.push(stopped_process);
                         self.remaining_time = 0;
@@ -257,7 +255,8 @@ impl Scheduler for RoundRobinScheduler {
                     None => {
                         SyscallResult::NoRunningProcess
                     }
-                },
+                }
+            },
             StopReason::Syscall{ syscall, remaining } => {
                 self.syscall_handler(syscall, remaining)
             }
