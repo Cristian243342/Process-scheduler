@@ -164,7 +164,7 @@ impl RoundRobinPrioritiesScheduler {
                     Some(mut stopped_process) => {
                         stopped_process.set_state(ProcessState::Waiting { event: None });
                         stopped_process.set_wakeup(WakeupCondition::Sleep(sleep_time));
-                        //stopped_process.increment_priority();
+                        stopped_process.increment_priority();
                         self.waiting_processes.push(stopped_process);
                     },
                     None => return SyscallResult::NoRunningProcess

@@ -13,7 +13,8 @@ pub struct PCB {
     process_state: ProcessState,
     timings: (usize, usize, usize),
     wakeup: WakeupCondition,
-    priority: i8,
+    fork_priority: i8,
+    running_priority: i8,
     extra: String
 }
 
@@ -23,7 +24,8 @@ impl PCB {
                process_state: ProcessState::Ready,
                timings: (0,0,0),
                wakeup: WakeupCondition::None,
-               priority,
+               fork_priority: priority,
+               running_priority: priority,
                extra: String::from("")
         }
     }
@@ -51,14 +53,14 @@ impl PCB {
     }
 
     pub fn increment_priority(&mut self) {
-        if self.priority != 5 {
-            self.priority += 1;
+        if self.running_priority != self.fork_priority {
+            self.running_priority += 1;
         }
     }
 
     pub fn decrement_priority(&mut self) {
-        if self.priority != 0 {
-            self.priority -= 1;
+        if self.running_priority != 0 {
+            self.running_priority -= 1;
         }
     }
 
@@ -78,7 +80,7 @@ impl Process for PCB {
     }
 
     fn priority(&self) -> i8 {
-        self.priority.clone()
+        self.running_priority.clone()
     }
 
     fn extra(&self) -> String {
