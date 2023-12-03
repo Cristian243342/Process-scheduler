@@ -117,6 +117,7 @@ impl RoundRobinPrioritiesScheduler {
                 self.new_process(priority);
 
                 self.wakeup_processes();
+                stopped_process.increment_priority();
                 match self.stopped_process.take() {
                     Some(mut stopped_process) => {
                         if remaining_time >= self.minimum_remaining_timeslice {
@@ -124,7 +125,6 @@ impl RoundRobinPrioritiesScheduler {
                             self.running_process = Some(stopped_process);
                             self.remaining_time = remaining_time;
                         } else {
-                            stopped_process.increment_priority();
                             self.set_ready(stopped_process)
                         }
                     },
