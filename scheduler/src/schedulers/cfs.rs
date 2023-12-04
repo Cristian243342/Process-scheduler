@@ -312,11 +312,13 @@ impl Scheduler for Cfs {
                 match NonZeroUsize::new(self.remaining_time) {Some(time) => time, None => exit(-1)}};
         }
 
-        let timeslice = self.compute_timeslice();
-        if let Some(scheduled_process) = self.scheduled_process() {
-            self.set_running(scheduled_process, timeslice.get());
-            return SchedulingDecision::Run { pid: match &self.running_process {Some(process) => process.pid(), None => exit(-1)},
-            timeslice };
+        if !self.ready_processes.is_empty() {
+            let timeslice = self.compute_timeslice();
+            if let Some(scheduled_process) = self.scheduled_process() {
+                self.set_running(scheduled_process, timeslice.get());
+                return SchedulingDecision::Run { pid: match &self.running_process {Some(process) => process.pid(), None => exit(-1)},
+                timeslice };
+            }
         }
 
         match self.find_sleep_time() {
