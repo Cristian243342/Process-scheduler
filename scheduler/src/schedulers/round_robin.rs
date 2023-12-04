@@ -78,8 +78,7 @@ impl RoundRobinScheduler {
     /// Moves processes that have waked up into the list of ready processes.
     fn wakeup_processes(&mut self) {
         let mut still_waiting_processes = Vec::<Pcb>::new();
-        let process_iter = self.waiting_processes.to_vec().into_iter();
-        for process in process_iter {
+        for process in self.waiting_processes.iter().cloned() {
             if matches!(process.state(), ProcessState::Ready) {
                 self.ready_processes.push(process);
             } else {
@@ -141,13 +140,13 @@ impl RoundRobinScheduler {
                 return true;
             }
         }
-        if self.ready_processes.iter().find(|element| element.pid().cmp(&Pid::new(1)).is_eq()).is_some() {
+        if self.ready_processes.iter().any(|element| element.pid().cmp(&Pid::new(1)).is_eq()) {
             return true;
         }
-        if self.waiting_processes.iter().find(|element| element.pid().cmp(&Pid::new(1)).is_eq()).is_some() {
+        if self.waiting_processes.iter().any(|element| element.pid().cmp(&Pid::new(1)).is_eq()) {
             return true;
         }
-        return false;
+        false
     }
 
     /// Returns the process scheduled to be run.
@@ -290,10 +289,10 @@ impl Scheduler for RoundRobinScheduler {
         match self.find_sleep_time() {
             Some(sleep_time) => {
                 self.sleep_time = sleep_time;
-                return SchedulingDecision::Sleep(match NonZeroUsize::new(sleep_time)
+                SchedulingDecision::Sleep(match NonZeroUsize::new(sleep_time)
                     {Some(sleep_time) => sleep_time, None => exit(-1)})
             },
-            None => return SchedulingDecision::Deadlock
+            None => SchedulingDecision::Deadlock
         }
     }
 
@@ -327,8 +326,8 @@ impl Scheduler for RoundRobinScheduler {
     fn list(&mut self) -> Vec<&dyn Process> {
         let mut processes = self.get_all_processes();
 
-        processes.sort_by(|element1, element2|  element1.pid().cmp(&element2.pid()));
+        processes.sort_by_key(|element|  element.pid());
 
-        return processes.into_iter().map(|element| element as &dyn Process).collect();
+        processes.into_iter().map(|element| element as &dyn Process).collect()
     }
 }
