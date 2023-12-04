@@ -121,11 +121,11 @@ impl Cfs {
     }
     
     fn size(&self) -> usize {
-        let mut processes = self.get_all_processes();
-        if let Some(stopped_process) = &self.stopped_process {
-            processes.push(stopped_process);
+        let mut length = self.get_all_processes().len();
+        if let Some(_) = &self.stopped_process {
+            length += 1;
         }
-        processes.len()
+        length
     }
 
     /// Sets a process into the ready state.
@@ -202,8 +202,8 @@ impl Cfs {
     }
 
     fn compute_timeslice(&self) -> NonZeroUsize {
-        if self.cpu_time.get() / self.minimum_remaining_timeslice >= self.size() {
-            return match NonZeroUsize::new(self.cpu_time.get() / self.size()) {Some(value) => value, None => exit(-1)};
+        if self.cpu_time.get() / self.minimum_remaining_timeslice >= self.size() + 1 {
+            return match NonZeroUsize::new(self.cpu_time.get() / self.size() + 1) {Some(value) => value, None => exit(-1)};
         } else {
             return match NonZeroUsize::new(self.minimum_remaining_timeslice) {Some(value) => value, None => exit(-1)};
         }
