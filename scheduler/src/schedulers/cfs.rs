@@ -206,6 +206,23 @@ impl Cfs {
         processes
     }
 
+    fn min_vruntime(&self) -> usize {
+        let mut processes = Vec::<&Box<Pcb>>::new();
+        processes.extend(self.ready_processes.iter());
+        if let Some(stopped_process) = &self.stopped_process {
+            processes.push(stopped_process);
+        }
+
+        match processes.iter().fold(None, |minimum: Option<usize>, process|
+            match minimum {
+                Some(minimum) => Some(minimum.min(process.vruntime())),                  
+                None => Some(process.vruntime())
+            }) {
+            Some(value) => value,
+            None => 0
+        }
+    }
+
     fn compute_timeslice(&self) -> NonZeroUsize {
         if self.cpu_time.get() / self.minimum_remaining_timeslice >= self.size() {
             return match NonZeroUsize::new(self.cpu_time.get() / self.size()) {Some(value) => value, None => exit(-1)};
@@ -213,6 +230,7 @@ impl Cfs {
             return match NonZeroUsize::new(self.minimum_remaining_timeslice) {Some(value) => value, None => exit(-1)};
         }
     }
+
     /// Handles syscalls recievied from the running process.
     fn syscall_handler(&mut self, syscall: Syscall, remaining_time: usize) -> SyscallResult {
         match syscall {
@@ -221,7 +239,7 @@ impl Cfs {
                 self.wakeup_processes();
                 match self.stopped_process.take() {
                     Some(mut stopped_process) => {
-                        self.new_process(priority, stopped_process.vruntime());
+                        self.new_process(priority, self.min_vruntime());
                         if remaining_time >= self.minimum_remaining_timeslice {
                             stopped_process.set_state(ProcessState::Running);
                             self.running_process = Some(stopped_process);
