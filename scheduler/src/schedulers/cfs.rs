@@ -5,15 +5,15 @@ use super::pcb::{Pcb, WakeupCondition};
 /// Data structure that implements a round robin scheduler.
 pub struct Cfs {
     /// The process running on the processor.
-    running_process: Option<Box<Pcb>>,
+    running_process: Option<Pcb>,
     /// Intermediate state a process is in during syscalls.
-    stopped_process: Option<Box<Pcb>>,
+    stopped_process: Option<Pcb>,
     /// The remaining execution time for the scheduled process.
     remaining_time: usize,
     /// The list of all processes ready to be scheduled.
-    ready_processes: Vec<Box<Pcb>>,
+    ready_processes: Vec<Pcb>,
     /// The list of all processes waiting for an event or sleeping.
-    waiting_processes: Vec<Box<Pcb>>,
+    waiting_processes: Vec<Pcb>,
     /// The amount of time a ready process gets on the processor.
     cpu_time: NonZeroUsize,
     /// The minimum required time on the processor the stopped process must have remaining
@@ -33,8 +33,8 @@ impl Cfs {
         Self { running_process: None,
             stopped_process: None,
             remaining_time: 0,
-            ready_processes: Vec::<Box<Pcb>>::new(),
-            waiting_processes: Vec::<Box<Pcb>>::new(),
+            ready_processes: Vec::<Pcb>::new(),
+            waiting_processes: Vec::<Pcb>::new(),
             cpu_time,
             minimum_remaining_timeslice,
             highest_pid: 0,
@@ -50,7 +50,7 @@ impl Cfs {
         };
 
         if let Some(stopped_process) = &mut self.stopped_process {
-            **stopped_process += time;
+            *stopped_process += time;
             stopped_process.set_extra(String::from("vruntime=") + stopped_process.vruntime().to_string().as_str());
             match _reason {
                 StopReason::Syscall { syscall: _, remaining: _ } => {
@@ -83,7 +83,7 @@ impl Cfs {
 
     /// Moves processes that have waked up into the list of ready processes.
     fn wakeup_processes(&mut self) {
-        let mut still_waiting_processes = Vec::<Box<Pcb>>::new();
+        let mut still_waiting_processes = Vec::<Pcb>::new();
         let process_iter = self.waiting_processes.to_vec().into_iter();
         for process in process_iter {
             if matches!(process.state(), ProcessState::Ready) {
@@ -117,7 +117,7 @@ impl Cfs {
     /// Forks a new process with the given priority.
     fn new_process(&mut self, priority: i8, vruntime: usize) {
         self.highest_pid += 1;
-        let mut new_process = Box::new(Pcb::new(Pid::new(self.highest_pid), priority, vruntime));
+        let mut new_process = Pcb::new(Pid::new(self.highest_pid), priority, vruntime);
         new_process.set_extra(String::from("vruntime=") + vruntime.to_string().as_str());
         self.ready_processes.push(new_process);
     }
@@ -134,7 +134,7 @@ impl Cfs {
     }
 
     /// Sets a process into the ready state.
-    fn set_ready(&mut self, mut process: Box<Pcb>) {
+    fn set_ready(&mut self, mut process: Pcb) {
         process.set_state(ProcessState::Ready);
         process.set_wakeup(WakeupCondition::None);
         self.ready_processes.push(process);
@@ -142,7 +142,7 @@ impl Cfs {
     }
 
     /// Sets a process to into the running state.
-    fn set_running(&mut self, mut process: Box<Pcb>, timeslice: usize) {
+    fn set_running(&mut self, mut process: Pcb, timeslice: usize) {
         process.set_state(ProcessState::Running);
         self.running_process = Some(process);
         self.remaining_time = timeslice;
@@ -170,7 +170,7 @@ impl Cfs {
     }
 
     /// Returns the process scheduled to be run.
-    fn scheduled_process(&mut self) -> Option<Box<Pcb>> {
+    fn scheduled_process(&mut self) -> Option<Pcb> {
         if !self.ready_processes.is_empty() {
             self.ready_processes.sort();
             Some(self.ready_processes.remove(0))
@@ -196,8 +196,8 @@ impl Cfs {
     }
 
     /// Return an vector of refrences to all processes.
-    fn get_all_processes(&self) -> Vec<&Box<Pcb>> {
-        let mut processes = Vec::<&Box<Pcb>>::new();
+    fn get_all_processes(&self) -> Vec<&Pcb> {
+        let mut processes = Vec::<&Pcb>::new();
         processes.extend(self.ready_processes.iter());
         processes.extend(self.waiting_processes.iter());
         if let Some(running_process) = &self.running_process {
@@ -207,7 +207,7 @@ impl Cfs {
     }
 
     fn min_vruntime(&self) -> usize {
-        let mut processes = Vec::<&Box<Pcb>>::new();
+        let mut processes = Vec::<&Pcb>::new();
         processes.extend(self.ready_processes.iter());
         processes.extend(self.waiting_processes.iter());
         if let Some(stopped_process) = &self.stopped_process {
@@ -381,6 +381,6 @@ impl Scheduler for Cfs {
 
         processes.sort_by(|element1, element2|  element1.pid().cmp(&element2.pid()));
 
-        return processes.into_iter().map(|element| element.as_ref() as &dyn Process).collect();
+        return processes.into_iter().map(|element| element as &dyn Process).collect();
     }
 }

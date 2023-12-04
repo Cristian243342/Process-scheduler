@@ -1,4 +1,4 @@
-use std::{ops::{AddAssign, Add}, process::exit};
+use std::ops::{AddAssign, Add};
 
 use crate::{ProcessState, Pid, Process};
 
@@ -50,7 +50,7 @@ impl Pcb {
                vruntime,
                wakeup: WakeupCondition::None,
                fork_priority: priority,
-               priority: priority,
+               priority,
                extra: String::from("")
         }
     }
@@ -66,7 +66,7 @@ impl Pcb {
 
     /// Returns the wakeup condition of a [`Pcb`].
     pub fn wakeup(&self) -> WakeupCondition {
-        self.wakeup.clone()
+        self.wakeup
     }
 
     /// Sets the wakeup condition of a [`Pcb`].
@@ -107,19 +107,19 @@ impl Pcb {
 
 impl Process for Pcb {
     fn pid(&self) -> Pid {
-        self.pid.clone()
+        self.pid
     }
 
     fn state(&self) -> ProcessState {
-        self.process_state.clone()
+        self.process_state
     }
 
     fn timings(&self) -> (usize, usize, usize) {
-        self.timings.clone()
+        self.timings
     }
 
     fn priority(&self) -> i8 {
-        self.priority.clone()
+        self.priority
     }
 
     fn extra(&self) -> String {
@@ -130,7 +130,7 @@ impl Process for Pcb {
 impl Add<usize> for Pcb {
     type Output = usize;
     fn add(self, value: usize) -> <Self as Add<usize>>::Output {
-        return self.vruntime + value;
+        self.vruntime + value
     }
 }
 
@@ -148,10 +148,7 @@ impl PartialEq for Pcb {
 
 impl PartialOrd for Pcb {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if self.eq(other) {
-            return Some(self.pid.cmp(&other.pid));
-        }
-        Some(self.vruntime.cmp(&other.vruntime))
+        Some(self.cmp(other))
     }
 }
 
@@ -160,9 +157,9 @@ impl Eq for Pcb {
 
 impl Ord for Pcb {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self.partial_cmp(other) {
-            Some(order) => order,
-            None => exit(-1)
+        if self.eq(other) {
+            return self.pid.cmp(&other.pid);
         }
+        self.vruntime.cmp(&other.vruntime)
     }
 }
