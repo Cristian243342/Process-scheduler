@@ -245,7 +245,7 @@ impl Cfs {
                         if remaining_time >= self.minimum_remaining_timeslice {
                             stopped_process.set_state(ProcessState::Running);
                             self.running_process = Some(stopped_process);
-                            self.remaining_time = self.compute_timeslice().get();
+                            self.remaining_time = self.compute_timeslice().get().min(remaining_time);
                         } else {
                             self.set_ready(stopped_process)
                         }
@@ -270,7 +270,7 @@ impl Cfs {
                         if remaining_time >= self.minimum_remaining_timeslice {
                             stopped_process.set_state(ProcessState::Running);
                             self.running_process = Some(stopped_process);
-                            self.remaining_time = self.compute_timeslice().get();
+                            self.remaining_time = self.compute_timeslice().get().min(remaining_time);
                         } else {
                             self.set_ready(stopped_process)
                         }
