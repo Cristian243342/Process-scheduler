@@ -204,8 +204,8 @@ impl Cfs {
     }
 
     fn compute_timeslice(&self) -> NonZeroUsize {
-        if self.cpu_time.get() / self.minimum_remaining_timeslice >= self.size() + 1 {
-            return match NonZeroUsize::new(self.cpu_time.get() / (self.size() + 1)) {Some(value) => value, None => exit(-1)};
+        if self.cpu_time.get() / self.minimum_remaining_timeslice >= self.size() {
+            return match NonZeroUsize::new(self.cpu_time.get() / self.size()) {Some(value) => value, None => exit(-1)};
         } else {
             return match NonZeroUsize::new(self.minimum_remaining_timeslice) {Some(value) => value, None => exit(-1)};
         }
@@ -222,7 +222,7 @@ impl Cfs {
                         if remaining_time >= self.minimum_remaining_timeslice {
                             stopped_process.set_state(ProcessState::Running);
                             self.running_process = Some(stopped_process);
-                            self.remaining_time = remaining_time;
+                            self.remaining_time = self.compute_timeslice().get();
                         } else {
                             self.set_ready(stopped_process)
                         }
@@ -248,7 +248,7 @@ impl Cfs {
                         if remaining_time >= self.minimum_remaining_timeslice {
                             stopped_process.set_state(ProcessState::Running);
                             self.running_process = Some(stopped_process);
-                            self.remaining_time = remaining_time;
+                            self.remaining_time = self.compute_timeslice().get();
                         } else {
                             self.set_ready(stopped_process)
                         }
@@ -306,8 +306,8 @@ impl Scheduler for Cfs {
                 match NonZeroUsize::new(self.remaining_time) {Some(time) => time, None => exit(-1)}};
         }
 
+        let timeslice = self.compute_timeslice();
         if let Some(scheduled_process) = self.scheduled_process() {
-            let timeslice = self.compute_timeslice();
             self.set_running(scheduled_process, timeslice.get());
             return SchedulingDecision::Run { pid: match &self.running_process {Some(process) => process.pid(), None => exit(-1)},
             timeslice };
