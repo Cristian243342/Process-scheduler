@@ -50,14 +50,13 @@ impl Cfs {
         };
 
         if let Some(stopped_process) = &mut self.stopped_process {
+            **stopped_process += time;
             match _reason {
                 StopReason::Syscall { syscall: _, remaining: _ } => {
                     stopped_process.increment_timings(time, 1, time - 1);
-                    **stopped_process += time - 1;
                 },
                 StopReason::Expired => {
                     stopped_process.increment_timings(time, 0, time);
-                    **stopped_process += time;
                 }
             }
         }
@@ -115,9 +114,9 @@ impl Cfs {
     }
 
     /// Forks a new process with the given priority.
-    fn new_process(&mut self, priority: i8) {
+    fn new_process(&mut self, priority: i8, vruntime: usize) {
         self.highest_pid += 1;
-        self.ready_processes.push(Box::new(Pcb::new(Pid::new(self.highest_pid), priority)));
+        self.ready_processes.push(Box::new(Pcb::new(Pid::new(self.highest_pid), priority, vruntime)));
     }
     
     fn size(&self) -> usize {
@@ -212,11 +211,11 @@ impl Cfs {
     fn syscall_handler(&mut self, syscall: Syscall, remaining_time: usize) -> SyscallResult {
         match syscall {
             Syscall::Fork(priority) => {
-                self.new_process(priority);
 
                 self.wakeup_processes();
                 match self.stopped_process.take() {
                     Some(mut stopped_process) => {
+                        self.new_process(priority, stopped_process.vruntime());
                         if remaining_time >= self.minimum_remaining_timeslice {
                             stopped_process.set_state(ProcessState::Running);
                             self.running_process = Some(stopped_process);
@@ -226,6 +225,7 @@ impl Cfs {
                         }
                     },
                     None => {
+                        self.new_process(priority, 0);
                         self.remaining_time = 0;
                     }
                 }

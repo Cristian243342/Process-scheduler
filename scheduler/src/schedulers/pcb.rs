@@ -43,11 +43,11 @@ impl Pcb {
     /// * process_state: [`ProcessState::Ready`]
     /// * timings: `(0, 0, 0)`
     /// * extra: `String::from("")`
-    pub fn new(pid: Pid, priority: i8) -> Self {
+    pub fn new(pid: Pid, priority: i8, vruntime: usize) -> Self {
         Self { pid,
                process_state: ProcessState::Ready,
                timings: (0, 0, 0),
-               vruntime: 0,
+               vruntime,
                wakeup: WakeupCondition::None,
                fork_priority: priority,
                priority: priority,
@@ -58,6 +58,10 @@ impl Pcb {
     /// Sets the process state of a [`Pcb`].
     pub fn set_state(&mut self, state: ProcessState) {
         self.process_state = state;
+    }
+
+    pub fn vruntime(&self) -> usize {
+        self.vruntime
     }
 
     /// Returns the wakeup condition of a [`Pcb`].

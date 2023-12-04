@@ -106,7 +106,7 @@ impl RoundRobinPrioritiesScheduler {
     fn new_process(&mut self, priority: i8) {
         self.highest_pid += 1;
         match self.ready_processes.get_mut(usize_from!(priority)) {
-            Some(process_queue) => process_queue.push(Box::new(Pcb::new(Pid::new(self.highest_pid), priority))),
+            Some(process_queue) => process_queue.push(Box::new(Pcb::new(Pid::new(self.highest_pid), priority, 0))),
             None => exit(-1)
         }
     }
