@@ -1,3 +1,5 @@
+use std::{ops::{AddAssign, Add}, process::exit};
+
 use crate::{ProcessState, Pid, Process};
 
 /// Enumerates the possible wakeup condition for [Pcb].
@@ -22,6 +24,7 @@ pub struct Pcb {
     /// * `timings.1` - the time spent on syscalls.
     /// * `timings.2` - the execution time (time spent on the processor).
     timings: (usize, usize, usize),
+    vruntime: usize,
     /// The condition for a waiting process to wake up.
     wakeup: WakeupCondition,
     /// The initial priority given to the process when it was forked.
@@ -40,10 +43,11 @@ impl Pcb {
     /// * process_state: [`ProcessState::Ready`]
     /// * timings: `(0, 0, 0)`
     /// * extra: `String::from("")`
-    pub fn new(pid: Pid, priority: i8) -> Self {
+    pub fn new(pid: Pid, priority: i8, vruntime: usize) -> Self {
         Self { pid,
                process_state: ProcessState::Ready,
                timings: (0, 0, 0),
+               vruntime,
                wakeup: WakeupCondition::None,
                fork_priority: priority,
                priority: priority,
@@ -56,6 +60,10 @@ impl Pcb {
         self.process_state = state;
     }
 
+    pub fn vruntime(&self) -> usize {
+        self.vruntime
+    }
+
     /// Returns the wakeup condition of a [`Pcb`].
     pub fn wakeup(&self) -> WakeupCondition {
         self.wakeup.clone()
@@ -64,6 +72,10 @@ impl Pcb {
     /// Sets the wakeup condition of a [`Pcb`].
     pub fn set_wakeup(&mut self, wakeup: WakeupCondition) {
         self.wakeup = wakeup;
+    }
+
+    pub fn set_extra(&mut self, extra: String) {
+        self.extra = extra;
     }
 
     /// Increments the timings of a [`Pcb`] by the specified values.
@@ -112,5 +124,45 @@ impl Process for Pcb {
 
     fn extra(&self) -> String {
         self.extra.clone()
+    }
+}
+
+impl Add<usize> for Pcb {
+    type Output = usize;
+    fn add(self, value: usize) -> <Self as Add<usize>>::Output {
+        return self.vruntime + value;
+    }
+}
+
+impl AddAssign<usize> for Pcb {
+    fn add_assign(&mut self, value: usize) {
+        self.vruntime += value;
+    }
+}
+
+impl PartialEq for Pcb {
+    fn eq(&self, other: &Self) -> bool {
+        self.vruntime.eq(&other.vruntime)
+    }
+}
+
+impl PartialOrd for Pcb {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if self.eq(other) {
+            return Some(self.pid.cmp(&other.pid));
+        }
+        Some(self.vruntime.cmp(&other.vruntime))
+    }
+}
+
+impl Eq for Pcb {
+}
+
+impl Ord for Pcb {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self.partial_cmp(other) {
+            Some(order) => order,
+            None => exit(-1)
+        }
     }
 }

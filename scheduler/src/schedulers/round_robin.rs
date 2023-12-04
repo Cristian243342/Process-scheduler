@@ -111,7 +111,7 @@ impl RoundRobinScheduler {
     /// Forks a new process with the given priority.
     fn new_process(&mut self, priority: i8) {
         self.highest_pid += 1;
-        self.ready_processes.push(Box::new(Pcb::new(Pid::new(self.highest_pid), priority)));
+        self.ready_processes.push(Box::new(Pcb::new(Pid::new(self.highest_pid), priority, 0)));
     }
     
     /// Sets a process into the ready state.
