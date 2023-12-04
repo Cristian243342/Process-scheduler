@@ -121,7 +121,11 @@ impl Cfs {
     }
     
     fn size(&self) -> usize {
-        self.get_all_processes().len()
+        let mut processes = self.get_all_processes();
+        if let Some(stopped_process) = &self.stopped_process {
+            processes.push(stopped_process);
+        }
+        processes.len()
     }
 
     /// Sets a process into the ready state.
