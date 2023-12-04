@@ -123,7 +123,10 @@ impl Cfs {
     }
     
     fn size(&self) -> usize {
-        let mut length = self.get_all_processes().len();
+        let mut length = self.ready_processes.len();
+        if let Some(_) = &self.running_process {
+            length += 1;
+        }
         if let Some(_) = &self.stopped_process {
             length += 1;
         }
