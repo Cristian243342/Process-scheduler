@@ -278,7 +278,10 @@ impl Cfs {
                     None => return SyscallResult::NoRunningProcess
                 }
             },
-            Syscall::Exit => self.wakeup_processes(),
+            Syscall::Exit => {
+                self.stopped_process = None;
+                self.wakeup_processes();
+            },
         };
         
         SyscallResult::Success
