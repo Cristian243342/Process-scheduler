@@ -304,7 +304,7 @@ impl Cfs {
                 self.stopped_process = None;
             },
         };
-        
+        self.wakeup_processes();
         SyscallResult::Success
     }
 
@@ -316,7 +316,6 @@ impl Scheduler for Cfs {
         if self.sleep_time != 0 {
             self.sleep();
         }
-        self.wakeup_processes();
 
         if self.is_done() {
             return SchedulingDecision::Done;
