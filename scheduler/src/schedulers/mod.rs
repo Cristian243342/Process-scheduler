@@ -21,4 +21,7 @@ pub use round_robin::RoundRobinScheduler;
 mod round_robin_priorities;
 pub use round_robin_priorities::RoundRobinPrioritiesScheduler;
 
+mod cfs;
+pub use cfs::Cfs;
+
 // TODO import your schedulers here

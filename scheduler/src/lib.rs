@@ -8,7 +8,7 @@ use std::num::NonZeroUsize;
 
 mod scheduler;
 
-use schedulers::Empty;
+use schedulers::Cfs;
 use schedulers::RoundRobinPrioritiesScheduler;
 use schedulers::RoundRobinScheduler;
 
@@ -62,5 +62,5 @@ pub fn priority_queue(
 ///                                 the `minimum_remaining_timeslice` value.
 #[allow(unused_variables)]
 pub fn cfs(cpu_time: NonZeroUsize, minimum_remaining_timeslice: usize) -> impl Scheduler {
-    Empty
+    Cfs::new(cpu_time, minimum_remaining_timeslice)
 }
