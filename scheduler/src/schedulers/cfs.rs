@@ -203,7 +203,7 @@ impl Cfs {
 
     fn compute_timeslice(&self) -> NonZeroUsize {
         if self.cpu_time.get() / self.minimum_remaining_timeslice >= self.size() + 1 {
-            return match NonZeroUsize::new(self.cpu_time.get() / self.size() + 1) {Some(value) => value, None => exit(-1)};
+            return match NonZeroUsize::new(self.cpu_time.get() / (self.size() + 1)) {Some(value) => value, None => exit(-1)};
         } else {
             return match NonZeroUsize::new(self.minimum_remaining_timeslice) {Some(value) => value, None => exit(-1)};
         }
