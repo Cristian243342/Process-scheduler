@@ -84,7 +84,7 @@ impl Cfs {
     /// Moves processes that have waked up into the list of ready processes.
     fn wakeup_processes(&mut self) {
         let mut still_waiting_processes = Vec::<Pcb>::new();
-        let process_iter = self.waiting_processes.to_vec().into_iter();
+        let process_iter = self.waiting_processes.iter().cloned();
         for process in process_iter {
             if matches!(process.state(), ProcessState::Ready) {
                 self.ready_processes.push(process);
@@ -124,10 +124,10 @@ impl Cfs {
     
     fn size(&self) -> usize {
         let mut length = self.ready_processes.len();
-        if let Some(_) = &self.running_process {
+        if self.running_process.is_some() {
             length += 1;
         }
-        if let Some(_) = &self.stopped_process {
+        if self.stopped_process.is_some() {
             length += 1;
         }
         length
@@ -160,13 +160,13 @@ impl Cfs {
                 return true;
             }
         }
-        if self.ready_processes.iter().find(|element| element.pid().cmp(&Pid::new(1)).is_eq()).is_some() {
+        if self.ready_processes.iter().any(|element| element.pid().cmp(&Pid::new(1)).is_eq()) {
             return true;
         }
-        if self.waiting_processes.iter().find(|element| element.pid().cmp(&Pid::new(1)).is_eq()).is_some() {
+        if self.waiting_processes.iter().any(|element| element.pid().cmp(&Pid::new(1)).is_eq()) {
             return true;
         }
-        return false;
+        false
     }
 
     /// Returns the process scheduled to be run.
@@ -214,21 +214,18 @@ impl Cfs {
             processes.push(stopped_process);
         }
 
-        match processes.iter().fold(None, |minimum: Option<usize>, process|
+        processes.iter().fold(None, |minimum: Option<usize>, process|
             match minimum {
                 Some(minimum) => Some(minimum.min(process.vruntime())),                  
                 None => Some(process.vruntime())
-            }) {
-            Some(value) => value,
-            None => 0
-        }
+            }).unwrap_or(0)
     }
 
     fn compute_timeslice(&self) -> NonZeroUsize {
         if self.cpu_time.get() / self.minimum_remaining_timeslice >= self.size() {
-            return match NonZeroUsize::new(self.cpu_time.get() / self.size()) {Some(value) => value, None => exit(-1)};
+            match NonZeroUsize::new(self.cpu_time.get() / self.size()) {Some(value) => value, None => exit(-1)}
         } else {
-            return match NonZeroUsize::new(self.minimum_remaining_timeslice) {Some(value) => value, None => exit(-1)};
+            match NonZeroUsize::new(self.minimum_remaining_timeslice) {Some(value) => value, None => exit(-1)}
         }
     }
 
@@ -342,10 +339,10 @@ impl Scheduler for Cfs {
         match self.find_sleep_time() {
             Some(sleep_time) => {
                 self.sleep_time = sleep_time;
-                return SchedulingDecision::Sleep(match NonZeroUsize::new(sleep_time)
+                SchedulingDecision::Sleep(match NonZeroUsize::new(sleep_time)
                     {Some(sleep_time) => sleep_time, None => exit(-1)})
             },
-            None => return SchedulingDecision::Deadlock
+            None => SchedulingDecision::Deadlock
         }
     }
 
@@ -379,8 +376,8 @@ impl Scheduler for Cfs {
     fn list(&mut self) -> Vec<&dyn Process> {
         let mut processes = self.get_all_processes();
 
-        processes.sort_by(|element1, element2|  element1.pid().cmp(&element2.pid()));
+        processes.sort_by_key(|element|  element.pid());
 
-        return processes.into_iter().map(|element| element as &dyn Process).collect();
+        processes.into_iter().map(|element| element as &dyn Process).collect()
     }
 }

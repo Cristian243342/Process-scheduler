@@ -210,7 +210,7 @@ impl RoundRobinPrioritiesScheduler {
     }
 
     fn scheduled_process(&mut self) -> Option<Pcb> {
-        if let Some(process_queue) = self.ready_processes.iter_mut().filter(|queue| !queue.is_empty()).rev().next() {
+        if let Some(process_queue) = self.ready_processes.iter_mut().filter(|queue| !queue.is_empty()).next_back() {
             return Some(process_queue.remove(0));
         }
         None
