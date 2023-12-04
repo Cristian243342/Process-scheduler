@@ -74,6 +74,10 @@ impl Pcb {
         self.wakeup = wakeup;
     }
 
+    pub fn set_extra(&mut self, extra: String) {
+        self.extra = extra;
+    }
+
     /// Increments the timings of a [`Pcb`] by the specified values.
     /// ### Parameters
     /// * total_time: Increments the [`Pcb`]'s total time by this value;

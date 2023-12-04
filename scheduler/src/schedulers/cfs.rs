@@ -51,6 +51,7 @@ impl Cfs {
 
         if let Some(stopped_process) = &mut self.stopped_process {
             **stopped_process += time;
+            stopped_process.set_extra(String::from("vruntime=") + stopped_process.vruntime().to_string().as_str());
             match _reason {
                 StopReason::Syscall { syscall: _, remaining: _ } => {
                     stopped_process.increment_timings(time, 1, time - 1);
@@ -116,7 +117,9 @@ impl Cfs {
     /// Forks a new process with the given priority.
     fn new_process(&mut self, priority: i8, vruntime: usize) {
         self.highest_pid += 1;
-        self.ready_processes.push(Box::new(Pcb::new(Pid::new(self.highest_pid), priority, vruntime)));
+        let mut new_process = Box::new(Pcb::new(Pid::new(self.highest_pid), priority, vruntime));
+        new_process.set_extra(String::from("vruntime=") + vruntime.to_string().as_str());
+        self.ready_processes.push(new_process);
     }
     
     fn size(&self) -> usize {
