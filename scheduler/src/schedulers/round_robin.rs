@@ -5,15 +5,15 @@ use super::pcb::{Pcb, WakeupCondition};
 /// Data structure that implements a round robin scheduler.
 pub struct RoundRobinScheduler {
     /// The process running on the processor.
-    running_process: Option<Box<Pcb>>,
+    running_process: Option<Pcb>,
     /// Intermediate state a process is in during syscalls.
-    stopped_process: Option<Box<Pcb>>,
+    stopped_process: Option<Pcb>,
     /// The remaining execution time for the scheduled process.
     remaining_time: usize,
     /// The list of all processes ready to be scheduled.
-    ready_processes: Vec<Box<Pcb>>,
+    ready_processes: Vec<Pcb>,
     /// The list of all processes waiting for an event or sleeping.
-    waiting_processes: Vec<Box<Pcb>>,
+    waiting_processes: Vec<Pcb>,
     /// The amount of time a ready process gets on the processor.
     timeslice: NonZeroUsize,
     /// The minimum required time on the processor the stopped process must have remaining
@@ -33,8 +33,8 @@ impl RoundRobinScheduler {
         Self { running_process: None,
             stopped_process: None,
             remaining_time: 0,
-            ready_processes: Vec::<Box<Pcb>>::new(),
-            waiting_processes: Vec::<Box<Pcb>>::new(),
+            ready_processes: Vec::<Pcb>::new(),
+            waiting_processes: Vec::<Pcb>::new(),
             timeslice,
             minimum_remaining_timeslice,
             highest_pid: 0,
@@ -77,9 +77,8 @@ impl RoundRobinScheduler {
 
     /// Moves processes that have waked up into the list of ready processes.
     fn wakeup_processes(&mut self) {
-        let mut still_waiting_processes = Vec::<Box<Pcb>>::new();
-        let process_iter = self.waiting_processes.to_vec().into_iter();
-        for process in process_iter {
+        let mut still_waiting_processes = Vec::<Pcb>::new();
+        for process in self.waiting_processes.iter().cloned() {
             if matches!(process.state(), ProcessState::Ready) {
                 self.ready_processes.push(process);
             } else {
@@ -111,11 +110,11 @@ impl RoundRobinScheduler {
     /// Forks a new process with the given priority.
     fn new_process(&mut self, priority: i8) {
         self.highest_pid += 1;
-        self.ready_processes.push(Box::new(Pcb::new(Pid::new(self.highest_pid), priority, 0)));
+        self.ready_processes.push(Pcb::new(Pid::new(self.highest_pid), priority, 0));
     }
     
     /// Sets a process into the ready state.
-    fn set_ready(&mut self, mut process: Box<Pcb>) {
+    fn set_ready(&mut self, mut process: Pcb) {
         process.set_state(ProcessState::Ready);
         process.set_wakeup(WakeupCondition::None);
         self.ready_processes.push(process);
@@ -123,7 +122,7 @@ impl RoundRobinScheduler {
     }
 
     /// Sets a process to into the running state.
-    fn set_running(&mut self, mut process: Box<Pcb>) {
+    fn set_running(&mut self, mut process: Pcb) {
         process.set_state(ProcessState::Running);
         self.running_process = Some(process);
         self.remaining_time = self.timeslice.get();
@@ -141,17 +140,17 @@ impl RoundRobinScheduler {
                 return true;
             }
         }
-        if self.ready_processes.iter().find(|element| element.pid().cmp(&Pid::new(1)).is_eq()).is_some() {
+        if self.ready_processes.iter().any(|element| element.pid().cmp(&Pid::new(1)).is_eq()) {
             return true;
         }
-        if self.waiting_processes.iter().find(|element| element.pid().cmp(&Pid::new(1)).is_eq()).is_some() {
+        if self.waiting_processes.iter().any(|element| element.pid().cmp(&Pid::new(1)).is_eq()) {
             return true;
         }
-        return false;
+        false
     }
 
     /// Returns the process scheduled to be run.
-    fn scheduled_process(&mut self) -> Option<Box<Pcb>> {
+    fn scheduled_process(&mut self) -> Option<Pcb> {
         if !self.ready_processes.is_empty() {
             Some(self.ready_processes.remove(0))
         } else {
@@ -176,8 +175,8 @@ impl RoundRobinScheduler {
     }
 
     /// Return an vector of refrences to all processes.
-    fn get_all_processes(&self) -> Vec<&Box<Pcb>> {
-        let mut processes = Vec::<&Box<Pcb>>::new();
+    fn get_all_processes(&self) -> Vec<&Pcb> {
+        let mut processes = Vec::<&Pcb>::new();
         processes.extend(self.ready_processes.iter());
         processes.extend(self.waiting_processes.iter());
         if let Some(running_process) = &self.running_process {
@@ -290,10 +289,10 @@ impl Scheduler for RoundRobinScheduler {
         match self.find_sleep_time() {
             Some(sleep_time) => {
                 self.sleep_time = sleep_time;
-                return SchedulingDecision::Sleep(match NonZeroUsize::new(sleep_time)
+                SchedulingDecision::Sleep(match NonZeroUsize::new(sleep_time)
                     {Some(sleep_time) => sleep_time, None => exit(-1)})
             },
-            None => return SchedulingDecision::Deadlock
+            None => SchedulingDecision::Deadlock
         }
     }
 
@@ -327,8 +326,8 @@ impl Scheduler for RoundRobinScheduler {
     fn list(&mut self) -> Vec<&dyn Process> {
         let mut processes = self.get_all_processes();
 
-        processes.sort_by(|element1, element2|  element1.pid().cmp(&element2.pid()));
+        processes.sort_by_key(|element|  element.pid());
 
-        return processes.into_iter().map(|element| element.as_ref() as &dyn Process).collect();
+        processes.into_iter().map(|element| element as &dyn Process).collect()
     }
 }
