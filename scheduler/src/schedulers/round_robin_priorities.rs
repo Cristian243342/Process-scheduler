@@ -39,7 +39,7 @@ impl RoundRobinPrioritiesScheduler {
 
     fn wakeup_processes(&mut self) {
         let mut still_waiting_processes = Vec::<Pcb>::new();
-        let process_iter = self.waiting_processes.to_vec().into_iter();
+        let process_iter = self.waiting_processes.iter().cloned();
         for process in process_iter {
             if matches!(process.state(), ProcessState::Ready) {
                 match self.ready_processes.get_mut(usize_from!(process.priority())) {
@@ -190,7 +190,7 @@ impl RoundRobinPrioritiesScheduler {
     fn is_done(&self) -> bool {
         self.running_process.is_none()
         && self.ready_processes.iter()
-            .fold(true, |is_empty, process_queue| is_empty && process_queue.is_empty())
+            .all(|process_queue| process_queue.is_empty())
         && self.waiting_processes.is_empty()
     }
 
@@ -200,17 +200,17 @@ impl RoundRobinPrioritiesScheduler {
                 return true;
             }
         }
-        if self.ready_processes.iter().flatten().find(|element| element.pid().cmp(&Pid::new(1)).is_eq()).is_some() {
+        if self.ready_processes.iter().flatten().any(|element| element.pid().cmp(&Pid::new(1)).is_eq()) {
             return true;
         }
-        if self.waiting_processes.iter().find(|element| element.pid().cmp(&Pid::new(1)).is_eq()).is_some() {
+        if self.waiting_processes.iter().any(|element| element.pid().cmp(&Pid::new(1)).is_eq()) {
             return true;
         }
-        return false;
+        false
     }
 
     fn scheduled_process(&mut self) -> Option<Pcb> {
-        for process_queue in self.ready_processes.iter_mut().filter(|queue| !queue.is_empty()).rev() {
+        if let Some(process_queue) = self.ready_processes.iter_mut().filter(|queue| !queue.is_empty()).rev().next() {
             return Some(process_queue.remove(0));
         }
         None
@@ -288,10 +288,10 @@ impl Scheduler for RoundRobinPrioritiesScheduler {
         match self.find_sleep_time() {
             Some(sleep_time) => {
                 self.sleep_time = sleep_time;
-                return SchedulingDecision::Sleep(match NonZeroUsize::new(sleep_time)
+                SchedulingDecision::Sleep(match NonZeroUsize::new(sleep_time)
                     {Some(sleep_time) => sleep_time, None => exit(-1)})
             },
-            None => return SchedulingDecision::Deadlock
+            None => SchedulingDecision::Deadlock
         }
     }
 
@@ -326,8 +326,8 @@ impl Scheduler for RoundRobinPrioritiesScheduler {
     fn list(&mut self) -> Vec<&dyn Process> {
         let mut processes = self.get_all_processes();
 
-        processes.sort_by(|element1, element2|  element1.pid().cmp(&element2.pid()));
+        processes.sort_by_key(|element|  element.pid());
 
-        return processes.into_iter().map(|element| element as &dyn Process).collect();
+        processes.into_iter().map(|element| element as &dyn Process).collect()
     }
 }
