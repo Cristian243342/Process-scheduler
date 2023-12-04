@@ -209,6 +209,7 @@ impl Cfs {
     fn min_vruntime(&self) -> usize {
         let mut processes = Vec::<&Box<Pcb>>::new();
         processes.extend(self.ready_processes.iter());
+        processes.extend(self.waiting_processes.iter());
         if let Some(stopped_process) = &self.stopped_process {
             processes.push(stopped_process);
         }
@@ -237,9 +238,10 @@ impl Cfs {
             Syscall::Fork(priority) => {
 
                 self.wakeup_processes();
+                let min_vruntime = self.min_vruntime();
+                self.new_process(priority, min_vruntime);
                 match self.stopped_process.take() {
                     Some(mut stopped_process) => {
-                        self.new_process(priority, self.min_vruntime());
                         if remaining_time >= self.minimum_remaining_timeslice {
                             stopped_process.set_state(ProcessState::Running);
                             self.running_process = Some(stopped_process);
@@ -249,7 +251,6 @@ impl Cfs {
                         }
                     },
                     None => {
-                        self.new_process(priority, 0);
                         self.remaining_time = 0;
                     }
                 }
