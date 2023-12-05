@@ -122,6 +122,7 @@ impl Cfs {
         self.ready_processes.push(new_process);
     }
     
+    /// Returns the total number of processes.
     fn size(&self) -> usize {
         let mut length = self.ready_processes.len();
         if self.running_process.is_some() {
@@ -206,6 +207,7 @@ impl Cfs {
         processes
     }
 
+    /// Gets the minimum timeslice from all processes.
     fn min_vruntime(&self) -> usize {
         let mut processes = Vec::<&Pcb>::new();
         processes.extend(self.ready_processes.iter());
@@ -221,6 +223,7 @@ impl Cfs {
             }).unwrap_or(0)
     }
 
+    /// Computes the timeslice for the scheduled process.
     fn compute_timeslice(&self) -> NonZeroUsize {
         if self.cpu_time.get() / self.minimum_remaining_timeslice >= self.size() {
             match NonZeroUsize::new(self.cpu_time.get() / self.size()) {Some(value) => value, None => exit(-1)}

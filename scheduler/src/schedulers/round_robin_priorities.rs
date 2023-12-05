@@ -2,6 +2,7 @@ use std::{num::NonZeroUsize, process::exit};
 use crate::{Scheduler, Process, Pid, ProcessState, StopReason, SchedulingDecision, Syscall, SyscallResult};
 use super::pcb::{Pcb, WakeupCondition};
 
+/// A macro for turning an integer into [usize].
 macro_rules! usize_from {
     ($integer:expr) => {
         match usize::try_from($integer) {
@@ -11,19 +12,33 @@ macro_rules! usize_from {
     }
 }
 
+/// Data structure that implements a round robin scheduler.
 pub struct RoundRobinPrioritiesScheduler {
+    /// The process running on the processor.
     running_process: Option<Pcb>,
+    /// Intermediate state a process is in during syscalls.
     stopped_process: Option<Pcb>,
+    /// The remaining execution time for the scheduled process.
     remaining_time: usize,
+    /// The list of process queues, separated by priority.
     ready_processes: Vec<Vec<Pcb>>,
+    /// The list of all processes waiting for an event or sleeping.
     waiting_processes: Vec<Pcb>,
+    /// The amount of time a ready process gets on the processor.
     timeslice: NonZeroUsize,
+    /// The minimum required time on the processor the stopped process must have remaining
+    /// for it to be scheduled imediately after the syscall that stopped it.
     minimum_remaining_timeslice: usize,
+    /// The highest pid given to a process.
     highest_pid: usize,
+    /// The amount of time the processor needs to sleep for a process to wake up if there are no ready processes to schedule.
+    /// Is `0` if there are ready processes.
     sleep_time: usize
 }
 
 impl RoundRobinPrioritiesScheduler {
+
+    /// Creates a new [`RoundRobinPrioritiesScheduler`].
     pub fn new(timeslice: NonZeroUsize, minimum_remaining_timeslice: usize) -> Self {
         Self { running_process: None,
             stopped_process: None,
@@ -37,6 +52,7 @@ impl RoundRobinPrioritiesScheduler {
         }
     }
 
+    /// Moves processes that have waked up into the list of ready processes.
     fn wakeup_processes(&mut self) {
         let mut still_waiting_processes = Vec::<Pcb>::new();
         let process_iter = self.waiting_processes.iter().cloned();
@@ -53,6 +69,7 @@ impl RoundRobinPrioritiesScheduler {
         self.waiting_processes.clone_from(&still_waiting_processes);
     }
 
+    /// Increments the timings for all processes.
     fn increment_timings(&mut self, _reason: &StopReason) {
         let time = match _reason {
             StopReason::Expired => self.remaining_time,
@@ -85,6 +102,7 @@ impl RoundRobinPrioritiesScheduler {
         }
     }
 
+    /// Sleeps for the amount of time needed for a process to become ready for scheduling.
     fn sleep(&mut self) {
         for process in self.waiting_processes.iter_mut() {
             process.increment_timings(self.sleep_time, 0, 0);
@@ -103,6 +121,7 @@ impl RoundRobinPrioritiesScheduler {
         self.wakeup_processes();
     }
 
+    /// Forks a new process with the given priority.
     fn new_process(&mut self, priority: i8) {
         self.highest_pid += 1;
         match self.ready_processes.get_mut(usize_from!(priority)) {
@@ -111,6 +130,7 @@ impl RoundRobinPrioritiesScheduler {
         }
     }
 
+    /// Handles syscalls recievied from the running process.
     fn syscall_handler(&mut self, syscall: Syscall, remaining_time: usize) -> SyscallResult {
         match syscall {
             Syscall::Fork(priority) => {
@@ -187,6 +207,7 @@ impl RoundRobinPrioritiesScheduler {
         SyscallResult::Success
     }
 
+    /// Returns `true` if there are no more processes, `false` otherwise.
     fn is_done(&self) -> bool {
         self.running_process.is_none()
         && self.ready_processes.iter()
@@ -194,6 +215,7 @@ impl RoundRobinPrioritiesScheduler {
         && self.waiting_processes.is_empty()
     }
 
+    /// Returns `true` if the process with pid 1 exists, `false` otherwise.
     fn pid_1_exists(&self) -> bool {
         if let Some(running_process) = &self.running_process {
             if running_process.pid().cmp(&Pid::new(1)).is_eq() {
@@ -209,6 +231,7 @@ impl RoundRobinPrioritiesScheduler {
         false
     }
 
+    /// Returns the process scheduled to be run.
     fn scheduled_process(&mut self) -> Option<Pcb> {
         if let Some(process_queue) = self.ready_processes.iter_mut().filter(|queue| !queue.is_empty()).next_back() {
             return Some(process_queue.remove(0));
@@ -216,6 +239,7 @@ impl RoundRobinPrioritiesScheduler {
         None
     }
 
+    /// Returns the minimal amount of time the processor needs to sleep for a process to become ready for scheduling.
     fn find_sleep_time(&self) -> Option<usize> {
         let mut minimum_sleep_time: Option<usize> = None;
         for sleep_time in self.waiting_processes.iter().filter_map(|element|
@@ -231,6 +255,7 @@ impl RoundRobinPrioritiesScheduler {
         minimum_sleep_time
     }
 
+    /// Sets a process into the ready state.
     fn set_ready(&mut self, mut process: Pcb) {
         process.set_state(ProcessState::Ready);
         process.set_wakeup(WakeupCondition::None);
@@ -241,12 +266,14 @@ impl RoundRobinPrioritiesScheduler {
         self.remaining_time = 0;
     }
 
+    /// Sets a process to into the running state.
     fn set_running(&mut self, mut process: Pcb) {
         process.set_state(ProcessState::Running);
         self.running_process = Some(process);
         self.remaining_time = self.timeslice.get();
     }
 
+    /// Return an vector of refrences to all processes.
     fn get_all_processes(&self) -> Vec<&Pcb> {
         let mut processes = Vec::<&Pcb>::new();
         processes.extend(self.ready_processes.iter().flatten());
